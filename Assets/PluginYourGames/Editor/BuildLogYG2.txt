@@ -1,0 +1,3 @@
+﻿Build path: C:/Users/sebnl/Desktop/Folder nou (2)
+Build number: 1
+PluginYG version: 2.0092

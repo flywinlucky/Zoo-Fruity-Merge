@@ -4697,6 +4697,11 @@ PrefabInstance:
       propertyPath: countdownTimer
       value: 70
       objectReference: {fileID: 0}
+    - target: {fileID: 5487241493330323015, guid: 4f1afdbdfcbd31f469f476de4b7ca9a8,
+        type: 3}
+      propertyPath: enableInterstitials
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7982977892681839473, guid: 4f1afdbdfcbd31f469f476de4b7ca9a8,
         type: 3}
       propertyPath: m_Camera
