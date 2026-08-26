@@ -1,32 +1,39 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.Compilation;
 using UnityEngine;
 using YG.Insides;
-using UnityEditor.Compilation;
 
 namespace YG.EditorScr
 {
     public class VersionControlWindow : EditorWindow
     {
+        public const string REMOVE_BEFORE_IMPORT_TOGGLE_KEY = "RemoveBeforeImport_YG2";
+        public const string SELECT_MODULES_KEY = "SelectModuleToggle_YG2";
+        public const PrefsList.StoreType SELECT_MODULES_STORE = PrefsList.StoreType.PluginPrefs;
+        private const string TAB_KEY = "YG2_VersionControl_Tab";
+        private enum TabSection { Modules = 0, Platforms = 1, Tools = 2 }
+        private static TabSection currentTab = TabSection.Modules;
+
+        public static bool isOpenWindow { get => instance; }
+        public static VersionControlWindow instance;
+
         private float rowHeight = 20f;
         private static VersionControlWindow window;
+        private static List<Module> modulesAll = new List<Module>();
         private static List<Module> modules = new List<Module>();
-        private static string fileContent;
-        private static bool downloadProcessPackage;
-        private const string NULL = "null";
-        private const string REMOVE_BEFORE_IMPORT_TOGGLE_KEY = "RemoveBeforeImport_YG2";
+
+        private static bool isDownloadProcess;
         private static bool removeBeforeImport;
-        private const string ALL_MODULES = "AllModules";
 
         private Vector2 scrollPosition;
         private bool cloudComplete = true;
 
-        [MenuItem("Tools/YG2/" + Langs.versionControl)]
+        [MenuItem("Tools/YG2/" + Langs.versionControl, false, 1)]
         public static void ShowWindow()
         {
             window = GetWindow<VersionControlWindow>(Langs.versionControl + " YG2");
@@ -37,177 +44,87 @@ namespace YG.EditorScr
 
         private void OnEnable()
         {
-            if (PlayerPrefs.GetInt(InfoYG.FIRST_STARTUP_KEY) == 0)
+            instance = this;
+
+            if (PluginPrefs.GetInt(InfoYG.FIRST_STARTUP_KEY) == 0)
                 return;
 
             removeBeforeImport = EditorPrefs.GetBool(REMOVE_BEFORE_IMPORT_TOGGLE_KEY, true);
+            currentTab = (TabSection)EditorPrefs.GetInt(TAB_KEY, (int)TabSection.Modules);
 
             ServerInfo.onLoadServerInfo += OnLoadServerInfo;
             EditorApplication.projectChanged += OnLoadServerInfo;
+            ModulesInstaller.onDownloadProcess += OnDownloadProcess;
+            ModuleQueue.onModuleLoaded += OnModuleLoaded;
 
             if (!Server.loadComplete)
                 InitData(null);
             else
                 InitData(ServerInfo.saveInfo);
-
         }
 
         private void OnDisable()
         {
-            if (PlayerPrefs.GetInt(InfoYG.FIRST_STARTUP_KEY) == 0)
+            instance = null;
+
+            if (PluginPrefs.GetInt(InfoYG.FIRST_STARTUP_KEY) == 0)
                 return;
 
             ServerInfo.onLoadServerInfo -= OnLoadServerInfo;
             EditorApplication.projectChanged -= OnLoadServerInfo;
+            ModulesInstaller.onDownloadProcess -= OnDownloadProcess;
+            ModuleQueue.onModuleLoaded -= OnModuleLoaded;
         }
 
+        private void OnModuleLoaded() => InitData(ServerInfo.saveInfo);
         private void OnLoadServerInfo() => InitData(ServerInfo.saveInfo);
+        private void OnDownloadProcess(bool isProcess) => isDownloadProcess = isProcess;
 
         private void InitData(ServerJson cloud)
         {
-            DefineSymbols.UpdateDefineSymbols();
             cloudComplete = cloud != null;
-            modules = new List<Module>();
+            modulesAll = ModulesList.GetGeneratedList(cloud);
+            ApplyTabFilterAndBuildVisibleList();
+        }
 
-            // PluginYG2 module
-            string pluginVersionPatch = InfoYG.PATCH_PC_YG2 + "/Version.txt";
-            string pluginVersion = string.Empty;
+        private void RefreshLocalVersionInfo()
+        {
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            DefineSymbols.ModulesDefineSymbols();
+        }
 
-            if (File.Exists(pluginVersionPatch))
+        private void ApplyTabFilterAndBuildVisibleList()
+        {
+            IEnumerable<Module> filtered = modulesAll;
+
+            switch (currentTab)
             {
-                pluginVersion = File.ReadAllText(pluginVersionPatch);
-                pluginVersion = pluginVersion.Replace("v", string.Empty);
+                case TabSection.Modules:
+                    filtered = modulesAll.Where(m => !m.platform && !m.tool);
+                    break;
+
+                case TabSection.Platforms:
+                    filtered = modulesAll.Where(m => m.platform && !m.tool);
+                    break;
+
+                case TabSection.Tools:
+                    filtered = modulesAll.Where(m => m.tool);
+                    break;
             }
 
-            Module pluginModule = new Module
-            {
-                nameModule = InfoYG.NAME_PLUGIN,
-                projectVersion = pluginVersion
-            };
-            modules.Add(pluginModule);
+            modules = filtered.ToList();
 
-            // Modules
-            string[] modulesTextLines = null;
-
-            if (File.Exists(InfoYG.FILE_MODULES_PC))
-                modulesTextLines = File.ReadAllLines(InfoYG.FILE_MODULES_PC);
-
-            for (int i = 0; i < modulesTextLines.Length; i++)
-            {
-                if (modulesTextLines[i] == string.Empty)
-                    continue;
-
-                string name = modulesTextLines[i];
-                string version = "imported";
-
-                int spaceIndex = modulesTextLines[i].IndexOf(' ');
-                if (spaceIndex > -1)
-                {
-                    name = modulesTextLines[i].Remove(spaceIndex);
-                    version = modulesTextLines[i].Remove(0, spaceIndex + 2);
-                }
-
-                Module module = new Module
-                {
-                    nameModule = name,
-                    projectVersion = version
-                };
-
-                modules.Add(module);
-            }
-
-            // Platforms
-            string[] platfomFolders = Directory.GetDirectories(InfoYG.PATCH_PC_PLATFORMS);
-            string[] platfomNames = new string[platfomFolders.Length];
-
-            for (int i = 0; i < platfomFolders.Length; i++)
-                platfomNames[i] = Path.GetFileName(platfomFolders[i]);
-
-            for (int i = 0; i < platfomNames.Length; i++)
-            {
-                string version = "imported";
-                string platfomVersionPathc = $"{InfoYG.PATCH_PC_PLATFORMS}/{platfomNames[i]}/Version.txt";
-
-                if (File.Exists(platfomVersionPathc))
-                {
-                    version = File.ReadAllText(platfomVersionPathc);
-                    version = version.Replace("v", string.Empty);
-                }
-
-                Module module = new Module
-                {
-                    nameModule = platfomNames[i],
-                    projectVersion = version,
-                    platform = true
-                };
-                modules.Add(module);
-            }
-
-            // Cloud
-            if (cloud != null && cloud.modules.Length > 0)
-            {
-                for (int i = 0; i < cloud.modules.Length; i++)
-                {
-                    bool found = false;
-
-                    for (int j = 0; j < modules.Count; j++)
-                    {
-                        if (cloud.modules[i].name == modules[j].nameModule)
-                        {
-                            Module module = new Module
-                            {
-                                nameModule = modules[j].nameModule,
-                                projectVersion = modules[j].projectVersion,
-                                lastVersion = cloud.modules[i].version,
-                                download = cloud.modules[i].download,
-                                doc = cloud.modules[i].doc,
-                                critical = cloud.modules[i].critical,
-                                noLoad = cloud.modules[i].noLoad,
-                                platform = modules[j].platform,
-                                dependencies = cloud.modules[i].dependencies
-                            };
-                            modules[j] = module;
-
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        Module module = new Module
-                        {
-                            nameModule = cloud.modules[i].name,
-                            projectVersion = string.Empty,
-                            lastVersion = cloud.modules[i].version,
-                            download = cloud.modules[i].download,
-                            doc = cloud.modules[i].doc,
-                            critical = cloud.modules[i].critical,
-                            noLoad = cloud.modules[i].noLoad,
-                            platform = cloud.modules[i].platform,
-                            dependencies = cloud.modules[i].dependencies
-                        };
-                        modules.Add(module);
-                    }
-                }
-            }
-
-            // AllModules
+            // Select Panel
             if (modules.Count > 1)
             {
-                string downloadAllModule = modules[0].download;
-                if (downloadAllModule != null)
+                Module allModule = new Module
                 {
-                    downloadAllModule = downloadAllModule.Replace(InfoYG.NAME_PLUGIN, ALL_MODULES);
-                    Module allModule = new Module
-                    {
-                        nameModule = ALL_MODULES,
-                        projectVersion = "0",
-                        doc = modules[0].doc,
-                        download = downloadAllModule
-                    };
-                    modules.Insert(1, allModule);
-                }
+                    nameModule = SELECT_MODULES_KEY,
+                    projectVersion = "0",
+                    doc = modules[0].doc,
+                    select = PrefsList.Contains(SELECT_MODULES_KEY, SELECT_MODULES_KEY, SELECT_MODULES_STORE)
+                };
+                modules.Insert(0, allModule);
             }
         }
 
@@ -215,19 +132,35 @@ namespace YG.EditorScr
         {
             GUILayout.BeginHorizontal();
 
+            EditorGUI.BeginChangeCheck();
             removeBeforeImport = EditorGUILayout.ToggleLeft(Langs.removeBeforeImport, removeBeforeImport);
             if (EditorGUI.EndChangeCheck())
                 EditorPrefs.SetBool(REMOVE_BEFORE_IMPORT_TOGGLE_KEY, removeBeforeImport);
 
+            GUIStyle allowUpdateStyle = ButtonStyle();
+            Rect rect = new Rect();
+            Rect btnRectC = new Rect();
+
+            allowUpdateStyle = HasAnyUpdatesAll() ? GreenButtonStyle() : ButtonStyle();
+
+            if (GUILayout.Button(Langs.changelog, allowUpdateStyle, GUILayout.Width(150)))
+            {
+                DocumentationEditor.HelpMenuItem();
+            }
+            GUILayout.Space(5);
+
             if (FastButton.Stringy(Langs.updateInfo))
             {
+                RefreshLocalVersionInfo();
                 InitData(null);
                 Server.LoadServerInfo();
             }
 
             GUILayout.EndHorizontal();
 
-            if (downloadProcessPackage || modules == null || modules.Count == 0)
+            DrawTabsBar();
+
+            if (isDownloadProcess || modules == null || modules.Count == 0)
             {
                 GUILayout.Space(20);
                 GUIStyle centeredStyle = TextStyles.Header();
@@ -242,340 +175,551 @@ namespace YG.EditorScr
             labelStyleGray.fontSize = 11;
             GUIStyle labelStyleOrange = TextStyles.Header();
 
-            bool imported = true;
-            float columnWidth = position.width / 4;
+            float columnWidth_Toggle = 30;
+            float columnWidth = (position.width - columnWidth_Toggle) / 4;
             float columnWidth_Name = columnWidth + 20;
             float columnWidth_ProjectVersion = columnWidth - 20;
-            float columnWidth_LatestVersion = columnWidth - 50;
-            float columnWidth_Control = columnWidth + 10;
+            float columnWidth_LatestVersion = columnWidth - 30;
+            float columnWidth_Control = columnWidth - 10;
 
-            GUILayout.Space(10);
-            GUILayout.BeginHorizontal(YGEditorStyles.box);
-            GUILayout.Label(Langs.name, labelStyleOrange, GUILayout.Width(columnWidth_Name), GUILayout.Height(rowHeight));
-            GUILayout.Label(Langs.projectVersion, labelStyleOrange, GUILayout.Width(columnWidth_ProjectVersion), GUILayout.Height(rowHeight));
-            GUILayout.Label(Langs.latestVersion, labelStyleOrange, GUILayout.Width(columnWidth_LatestVersion), GUILayout.Height(rowHeight));
-            GUIStyle headerCenter = TextStyles.Header();
-            headerCenter.alignment = TextAnchor.MiddleCenter;
-            GUILayout.Label(Langs.control, headerCenter, GUILayout.Width(columnWidth_Control), GUILayout.Height(rowHeight));
-            GUILayout.EndHorizontal();
-
-            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-
-            for (int i = 0; i < modules.Count; i++)
+            //GUILayout.Space(10);
+            using (new GUILayout.HorizontalScope(YGEditorStyles.box))
             {
-                if (EditorUtils.IsMouseOverWindow(this))
-                    GUILayout.BeginHorizontal(YGEditorStyles.selectable);
-                else
-                    GUILayout.BeginHorizontal(YGEditorStyles.deselectable);
+                GUILayout.Space(columnWidth_Toggle);
+                GUILayout.Label(Langs.name, labelStyleOrange, GUILayout.Width(columnWidth_Name - 6), GUILayout.Height(rowHeight));
+                GUILayout.Label(Langs.projectVersion, labelStyleOrange, GUILayout.Width(columnWidth_ProjectVersion), GUILayout.Height(rowHeight));
+                GUILayout.Label(Langs.latestVersion, labelStyleOrange, GUILayout.Width(columnWidth_LatestVersion), GUILayout.Height(rowHeight));
+                GUIStyle headerCenter = TextStyles.Header();
+                headerCenter.alignment = TextAnchor.MiddleCenter;
+                GUILayout.Label(Langs.control, headerCenter, GUILayout.Width(columnWidth_Control), GUILayout.Height(rowHeight));
+            }
 
-                string projectVersionStr = modules[i].projectVersion;
-                if (modules[i].nameModule != ALL_MODULES)
+            using (var scroll = new EditorGUILayout.ScrollViewScope(scrollPosition))
+            {
+                scrollPosition = scroll.scrollPosition;
+
+                bool hasSelectPanel = modules.Count > 1;
+
+                for (int i = 0; i < modules.Count; i++)
                 {
-                    if (projectVersionStr == string.Empty || projectVersionStr == null)
+                    Module module = modules[i];
+                    bool isSelectPanel = hasSelectPanel && i == 0;
+
+                    using (new GUILayout.HorizontalScope(isSelectPanel || !EditorUtils.IsMouseOverWindow(this) ? YGEditorStyles.deselectable : YGEditorStyles.selectable))
                     {
-                        imported = false;
-                        projectVersionStr = "not imported";
-                    }
-                }
+                        bool imported = true;
+                        string projectVersionStr = CorrectVersionString(module.projectVersion);
+                        string lastVersionStr = CorrectVersionString(module.lastVersion);
 
-                string lastVersionStr = modules[i].lastVersion;
-                float.TryParse(modules[i].projectVersion, NumberStyles.Float, CultureInfo.InvariantCulture, out float projectVersion);
-                float.TryParse(modules[i].lastVersion, NumberStyles.Float, CultureInfo.InvariantCulture, out float lastVersion);
-
-                // Name
-                Rect rect = GUILayoutUtility.GetRect(new GUIContent(modules[i].nameModule), GUIStyle.none, GUILayout.Width(columnWidth_Name), GUILayout.Height(rowHeight));
-                GUIStyle labelStyleName;
-                if (imported)
-                {
-                    if (lastVersion > projectVersion)
-                        labelStyleName = TextStyles.Green();
-                    else
-                        labelStyleName = TextStyles.White();
-                }
-                else
-                {
-                    if (EditorGUIUtility.isProSkin)
-                        labelStyleName = TextStyles.LabelStyleColor(new Color(0.75f, 0.75f, 0.75f));
-                    else
-                        labelStyleName = TextStyles.LabelStyleColor(new Color(0.3f, 0.3f, 0.3f));
-                }
-
-                string drawName = modules[i].nameModule;
-
-                if (drawName == InfoYG.NAME_PLUGIN)
-                    drawName = InfoYG.FULL_NAME_PLUGIN;
-                else
-                    drawName = TextStyles.AddSpaces(drawName);
-
-                if (modules[i].platform)
-                    drawName += " - platform";
-
-                GUI.Label(rect, drawName, labelStyleName);
-
-                // Project version
-                rect = GUILayoutUtility.GetRect(new GUIContent(projectVersionStr), GUIStyle.none, GUILayout.Width(columnWidth_ProjectVersion), GUILayout.Height(rowHeight));
-
-                if (modules[i].nameModule == ALL_MODULES)
-                { }
-                else if (imported)
-                {
-                    if (lastVersion > projectVersion && modules[i].critical)
-                        GUI.Label(rect, projectVersionStr, TextStyles.Red());
-                    else
-                        GUI.Label(rect, projectVersionStr);
-                }
-                else
-                {
-                    GUI.Label(rect, projectVersionStr, labelStyleGray);
-                }
-
-                // Latest version
-                rect = GUILayoutUtility.GetRect(new GUIContent(lastVersionStr), GUIStyle.none, GUILayout.Width(columnWidth_LatestVersion), GUILayout.Height(rowHeight));
-
-                if (modules[i].nameModule == ALL_MODULES)
-                { }
-                else if (cloudComplete)
-                {
-                    if (lastVersionStr == string.Empty || lastVersionStr == null)
-                    {
-                        lastVersionStr = "not found";
-                        GUI.Label(rect, lastVersionStr, labelStyleGray);
-                    }
-                    else if (imported && lastVersion > projectVersion)
-                    {
-                        if (modules[i].critical)
-                            lastVersionStr += "  critical!";
-
-                        GUI.Label(rect, lastVersionStr, labelStyleGreen);
-                    }
-                    else
-                    {
-                        GUI.Label(rect, lastVersionStr);
-                    }
-                }
-                else
-                {
-                    GUI.Label(rect, Langs.loading, labelStyleGray);
-                }
-
-                // Control
-                rect = GUILayoutUtility.GetRect(new GUIContent("Control"), GUIStyle.none, GUILayout.Width(columnWidth_Control / 1.5f), GUILayout.Height(rowHeight));
-
-                if (!cloudComplete)
-                {
-                    GUI.Label(rect, Langs.loading, labelStyleGray);
-                }
-                else
-                {
-                    GUILayout.BeginHorizontal();
-
-                    if (modules[i].nameModule == ALL_MODULES)
-                    {
-                        string quickImport = "Quick Import";
-                        if (GUI.Button(rect, quickImport, ButtonStyle()))
+                        if (!isSelectPanel)
                         {
-                            if (IsUpdatePlugin())
+                            if (string.IsNullOrEmpty(projectVersionStr))
                             {
-                                if (EditorUtility.DisplayDialog($"{quickImport}", Langs.quickImport, Langs.continue_, Langs.cancel))
+                                imported = false;
+                                projectVersionStr = "not imported";
+                            }
+                        }
+
+                        string CorrectVersionString(string versionString)
+                        {
+                            if (string.IsNullOrEmpty(versionString))
+                                return string.Empty;
+
+                            versionString = versionString.Replace(",", ".").Trim();
+
+                            if (double.TryParse(versionString, NumberStyles.Float,
+                                                CultureInfo.InvariantCulture, out var value))
+                            {
+                                return (value % 1 == 0)
+                                    ? value.ToString("0.0", CultureInfo.InvariantCulture)
+                                    : value.ToString(CultureInfo.InvariantCulture);
+                            }
+
+                            var sb = new System.Text.StringBuilder();
+                            bool seenDigit = false, seenDot = false;
+                            foreach (char ch in versionString)
+                            {
+                                if (char.IsDigit(ch)) { sb.Append(ch); seenDigit = true; continue; }
+                                if (ch == '.' && !seenDot) { sb.Append('.'); seenDot = true; continue; }
+                                if (seenDigit) break;
+                            }
+
+                            var token = sb.ToString();
+                            if (token.Length > 0 && double.TryParse(token, NumberStyles.Float,
+                                                                    CultureInfo.InvariantCulture, out value))
+                            {
+                                return (value % 1 == 0)
+                                    ? value.ToString("0.0", CultureInfo.InvariantCulture)
+                                    : value.ToString(CultureInfo.InvariantCulture);
+                            }
+
+                            return versionString;
+                        }
+
+                        // Toggle Select
+                        rect = GUILayoutUtility.GetRect(new GUIContent("Toggles"), GUIStyle.none, GUILayout.Width(columnWidth_Toggle), GUILayout.Height(rowHeight));
+
+                        if (isSelectPanel)
+                        {
+                            EditorGUI.BeginChangeCheck();
+                            module.select = GUI.Toggle(rect, module.select, "");
+
+                            if (EditorGUI.EndChangeCheck())
+                            {
+                                if (module.select)
                                 {
-                                    ImportPackage(modules[i]);
+                                    for (int k = 1; k < modules.Count; k++)
+                                    {
+                                        modules[k].select = true;
+                                        PrefsList.Add(SELECT_MODULES_KEY, modules[k].nameModule, SELECT_MODULES_STORE);
+                                    }
+                                    PrefsList.Add(SELECT_MODULES_KEY, SELECT_MODULES_KEY, SELECT_MODULES_STORE);
+                                }
+                                else
+                                {
+                                    for (int k = 1; k < modules.Count; k++)
+                                        modules[k].select = false;
+
+                                    PrefsList.Remove(SELECT_MODULES_KEY, SELECT_MODULES_KEY, SELECT_MODULES_STORE);
+                                    for (int k = 1; k < modules.Count; k++)
+                                        PrefsList.Remove(SELECT_MODULES_KEY, modules[k].nameModule, SELECT_MODULES_STORE);
                                 }
                             }
                         }
-                    }
-                    else if (imported)
-                    {
-                        if (lastVersion > projectVersion)
+                        else
                         {
-                            rect.width = columnWidth_Control / 3 - 2;
-                            ButtonUpdate();
-                            rect.x += columnWidth_Control / 3 + 2;
-                            ButtonDelete();
+                            EditorGUI.BeginChangeCheck();
+                            module.select = GUI.Toggle(rect, module.select, "");
+
+                            if (EditorGUI.EndChangeCheck())
+                            {
+                                if (module.select)
+                                {
+                                    PrefsList.Add(SELECT_MODULES_KEY, module.nameModule, SELECT_MODULES_STORE);
+                                }
+                                else
+                                {
+                                    PrefsList.Remove(SELECT_MODULES_KEY, module.nameModule, SELECT_MODULES_STORE);
+                                    PrefsList.Remove(SELECT_MODULES_KEY, SELECT_MODULES_KEY, SELECT_MODULES_STORE);
+                                    modules[0].select = false;
+                                }
+                            }
+                        }
+
+                        // Name
+                        rect = GUILayoutUtility.GetRect(new GUIContent(module.nameModule), GUIStyle.none, GUILayout.Width(columnWidth_Name), GUILayout.Height(rowHeight));
+                        GUIStyle labelStyleName;
+
+                        if (isSelectPanel)
+                        {
+                            int selectedCount = 0;
+                            for (int m = 1; m < modules.Count; m++)
+                            {
+                                if (modules[m].select)
+                                    selectedCount++;
+                            }
+
+                            if (selectedCount != 0)
+                                labelStyleName = TextStyles.Header();
+                            else
+                                labelStyleName = TextStyles.LabelStyleColor(new Color(0.7f, 0.7f, 0.7f));
+
+                            GUI.Label(rect, $"Selected modules: {selectedCount}", labelStyleName);
                         }
                         else
                         {
-                            ButtonDelete();
+                            if (imported)
+                            {
+                                if (ModulesInstaller.IsModuleCurrentVersion(module))
+                                    labelStyleName = TextStyles.White();
+                                else
+                                    labelStyleName = TextStyles.Green();
+                            }
+                            else
+                            {
+                                if (EditorGUIUtility.isProSkin)
+                                    labelStyleName = TextStyles.LabelStyleColor(new Color(0.75f, 0.75f, 0.75f));
+                                else
+                                    labelStyleName = TextStyles.LabelStyleColor(new Color(0.3f, 0.3f, 0.3f));
+                            }
+
+                            string drawName = module.nameModule;
+
+                            if (drawName == InfoYG.NAME_PLUGIN)
+                                drawName = InfoYG.FULL_NAME_PLUGIN;
+                            else
+                                drawName = TextStyles.AddSpaces(drawName);
+
+                            // Визуальная пометка
+
+                            //if (module.platform)
+                            //    drawName += " - platform";
+
+                            // if (module.tool)
+                            //     drawName += " - tool";
+
+                            GUI.Label(rect, drawName, labelStyleName);
                         }
 
-                        void ButtonUpdate()
+                        // Project version
+                        rect = GUILayoutUtility.GetRect(new GUIContent(projectVersionStr), GUIStyle.none, GUILayout.Width(columnWidth_ProjectVersion), GUILayout.Height(rowHeight));
+
+                        if (isSelectPanel)
                         {
-                            if (GUI.Button(rect, "Update", ButtonStyle()))
+                            List<Module> allowModules = new List<Module>();
+
+                            for (int m = 1; m < modules.Count; m++)
                             {
-                                if (!modules[i].noLoad)
+                                if (modules[m].select && !string.IsNullOrEmpty(modules[m].projectVersion))
+                                    allowModules.Add(modules[m]);
+                            }
+
+                            Rect btnRect = new Rect(rect.x, rect.y, 125, rect.height);
+
+                            if (allowModules.Count > 0)
+                            {
+                                if (GUI.Button(btnRect, "Delete selected", ButtonStyle()))
                                 {
-                                    if (removeBeforeImport)
+                                    if (modules.Count > 1 && modules[1].select && modules[1].nameModule == InfoYG.NAME_PLUGIN)
                                     {
-                                        if (modules[i].nameModule == InfoYG.NAME_PLUGIN)
+                                        if (WarningDeletePlugin())
                                         {
-                                            UpdatePlyginYG(modules[i]);
-                                        }
-                                        else if (IsUpdatePlugin())
-                                        {
-                                            ImportPackage(modules[i]);
-
-                                            string patchModules = $"{InfoYG.PATCH_PC_MODULES}/{modules[i].nameModule}";
-                                            string patchPlatforms = $"{InfoYG.PATCH_PC_PLATFORMS}/{modules[i].nameModule}";
-
-                                            if (Directory.Exists(patchModules))
-                                            {
-                                                FileYG.DeleteDirectory(patchModules);
-                                            }
-                                            else if (Directory.Exists(patchPlatforms))
-                                            {
-                                                if (modules[i].nameModule != "YandexGames")
-                                                    DeletePlatformWebGLTemplate(modules[i].nameModule);
-
-                                                PlatformSettings.DeletePlatform();
-                                            }
+                                            DeletePlugin();
                                         }
                                     }
                                     else
                                     {
-                                        ImportPackage(modules[i]);
-                                    }
-                                }
-                                else
-                                {
-                                    Application.OpenURL(modules[i].download);
-                                }
-                            }
-                        }
+                                        string dialogText = $"{Langs.deleteModule}:\n";
+                                        foreach (Module m in allowModules)
+                                            dialogText += "\n• " + m.nameModule;
 
-                        void ButtonDelete()
-                        {
-                            string pathDelete = string.Empty;
-                            bool isModulPlatform = false;
-
-                            if (modules[i].nameModule == InfoYG.NAME_PLUGIN)
-                            {
-                                pathDelete = InfoYG.PATCH_PC_YG2;
-                            }
-                            else
-                            {
-                                string patchModules = $"{InfoYG.PATCH_PC_MODULES}/{modules[i].nameModule}";
-                                string patchPlatforms = $"{InfoYG.PATCH_PC_PLATFORMS}/{modules[i].nameModule}";
-
-                                if (Directory.Exists(patchModules))
-                                    pathDelete = patchModules;
-
-                                if (Directory.Exists(patchPlatforms))
-                                {
-                                    pathDelete = patchPlatforms;
-                                    isModulPlatform = true;
-                                }
-                            }
-
-                            if (pathDelete != string.Empty)
-                            {
-                                if (modules[i].nameModule == InfoYG.NAME_PLUGIN)
-                                {
-                                    if (GUI.Button(rect, "Delete all", ButtonStyle()))
-                                    {
-                                        if (EditorUtility.DisplayDialog($"{Langs.correctDelete} {InfoYG.NAME_PLUGIN}", Langs.fullDeletePluginYG, Langs.deleteAll, Langs.cancel))
+                                        if (EditorUtility.DisplayDialog(Langs.deleteModule, dialogText, "Ok", Langs.cancel))
                                         {
-                                            DeletePluginYG();
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    if (GUI.Button(rect, "Delete", ButtonStyle()))
-                                    {
-                                        if (EditorUtility.DisplayDialog(Langs.deletePackage, $"{Langs.deletePackage} {modules[i].nameModule}?", "Ok", Langs.cancel))
-                                        {
-                                            if (isModulPlatform)
-                                            {
-                                                PlatformSettings.DeletePlatform();
-                                                DeletePlatformWebGLTemplate(modules[i].nameModule);
-                                                DefineSymbols.RemoveDefine(modules[i].nameModule + "Platform_yg");
-                                            }
-                                            else
-                                            {
-                                                DefineSymbols.RemoveDefine(modules[i].nameModule + "_yg");
-                                            }
+                                            foreach (Module m in allowModules)
+                                                DeleteModule(m, btnRect, true);
 
-                                            FileYG.DeleteDirectory(pathDelete);
-                                            DefineSymbols.ModulesDefineSymbols();
-                                            InitData(ServerInfo.saveInfo);
                                             AssetDatabase.Refresh();
+                                            InitData(ServerInfo.saveInfo);
                                         }
                                     }
                                 }
                             }
+                        }
+                        else
+                        {
+                            Rect labelRect = new Rect(rect.x + 30, rect.y, rect.width, rect.height);
+
+                            if (imported)
+                            {
+                                if (!ModulesInstaller.IsModuleCurrentVersion(module) && ModulesInstaller.IsCriticalUpdate(module))
+                                    GUI.Label(labelRect, projectVersionStr, TextStyles.Red());
+                                else
+                                    GUI.Label(labelRect, projectVersionStr);
+                            }
                             else
                             {
-                                GUI.Label(rect, "manual deletion", labelStyleGray);
+                                GUI.Label(labelRect, projectVersionStr, labelStyleGray);
                             }
                         }
-                    }
-                    else
-                    {
-                        if (modules[i].download != string.Empty && modules[i].download != null)
+
+                        // Latest version
+                        rect = GUILayoutUtility.GetRect(new GUIContent(lastVersionStr), GUIStyle.none, GUILayout.Width(columnWidth_LatestVersion), GUILayout.Height(rowHeight));
+
+                        if (isSelectPanel)
                         {
-                            if (!modules[i].noLoad)
+                            List<Module> allowModules = new List<Module>();
+
+                            for (int m = 1; m < modules.Count; m++)
                             {
-                                if (GUI.Button(rect, "Import", ButtonStyle()))
+                                if (!modules[m].select || modules[m].noLoad || string.IsNullOrEmpty(modules[m].download))
+                                    continue;
+
+                                if (!string.IsNullOrEmpty(modules[m].projectVersion) && ModulesInstaller.IsModuleCurrentVersion(modules[m]))
+                                    continue;
+
+                                allowModules.Add(modules[m]);
+                            }
+
+                            Rect btnRect = new Rect(rect.x, rect.y, 125, rect.height);
+
+                            if (allowModules.Count > 0)
+                            {
+                                if (GUI.Button(btnRect, "Install selected", ButtonStyle()))
                                 {
-                                    if (IsUpdatePlugin())
-                                        ImportPackage(modules[i]);
+                                    if (ModulesInstaller.ApprovalDownload())
+                                    {
+                                        int selectedCount = 0;
+                                        for (int m = 1; m < modules.Count; m++)
+                                            if (modules[m].select)
+                                                selectedCount++;
+
+                                        bool executeInstall = true;
+                                        if (selectedCount >= modules.Count - 1)
+                                        {
+                                            if (!EditorUtility.DisplayDialog("Install all modules?", Langs.importAllModules, "Ok", Langs.cancel))
+                                                executeInstall = false;
+                                        }
+
+                                        if (executeInstall && ModulesInstaller.ApprovalDependencies(allowModules))
+                                        {
+                                            for (int m = 0; m < allowModules.Count; m++)
+                                                ModuleQueue.AddList(allowModules[m], true, false);
+
+                                            ModuleQueue.ProcessInstallModulesInTurn();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Rect labelRect = new Rect(rect.x + 30, rect.y, rect.width, rect.height);
+
+                            if (cloudComplete)
+                            {
+                                if (lastVersionStr == string.Empty || lastVersionStr == null)
+                                {
+                                    lastVersionStr = "not found";
+                                    GUI.Label(labelRect, lastVersionStr, labelStyleGray);
+                                }
+                                else if (imported && !ModulesInstaller.IsModuleCurrentVersion(module))
+                                {
+                                    if (ModulesInstaller.IsCriticalUpdate(module))
+                                        lastVersionStr += "  important";
+
+                                    GUI.Label(labelRect, lastVersionStr, labelStyleGreen);
+                                }
+                                else
+                                {
+                                    GUI.Label(labelRect, lastVersionStr);
                                 }
                             }
                             else
                             {
-                                if (GUI.Button(rect, "Import by link", ButtonStyle()))
-                                    Application.OpenURL(modules[i].download);
+                                GUI.Label(labelRect, Langs.loading, labelStyleGray);
+                            }
+                        }
+
+                        // Control
+                        rect = GUILayoutUtility.GetRect(new GUIContent("Control"), GUIStyle.none, GUILayout.Width(columnWidth_Control / 1.5f), GUILayout.Height(rowHeight));
+                        btnRectC = new Rect(rect.x, rect.y, 125, rect.height);
+
+                        if (!cloudComplete)
+                        {
+                            GUI.Label(rect, Langs.loading, labelStyleGray);
+                        }
+                        else
+                        {
+                            using (new GUILayout.HorizontalScope())
+                            {
+                                if (isSelectPanel)
+                                {
+                                    bool anyUpdates = HasAnyUpdatesInList(modules);
+                                    bool anyBatchUpdates = HasBatchUpdatableUpdatesInList(modules);
+
+                                    if (anyUpdates && anyBatchUpdates)
+                                    {
+                                        if (GUI.Button(btnRectC, Langs.updateAll, allowUpdateStyle))
+                                        {
+                                            if (ModulesInstaller.ApprovalDownload())
+                                            {
+                                                List<Module> allowModules = new List<Module>();
+
+                                                for (int m = 1; m < modules.Count; m++)
+                                                {
+                                                    if (modules[m] == null) continue;
+                                                    if (modules[m].noLoad) continue;
+
+                                                    if (!string.IsNullOrEmpty(modules[m].projectVersion) &&
+                                                        !ModulesInstaller.IsModuleCurrentVersion(modules[m]))
+                                                    {
+                                                        allowModules.Add(modules[m]);
+                                                    }
+                                                }
+
+                                                if (ModulesInstaller.ApprovalDependencies(allowModules))
+                                                {
+                                                    for (int m = 0; m < allowModules.Count; m++)
+                                                        ModuleQueue.AddList(allowModules[m], true, false);
+
+                                                    ModuleQueue.ProcessInstallModulesInTurn();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                else if (imported)
+                                {
+                                    if (!ModulesInstaller.IsModuleCurrentVersion(module))
+                                    {
+                                        ButtonUpdate();
+                                    }
+                                    else
+                                    {
+                                        DeleteModule(module, btnRectC, false);
+                                    }
+                                }
+                                else
+                                {
+                                    if (!string.IsNullOrEmpty(module.download))
+                                    {
+                                        if (!module.noLoad)
+                                        {
+                                            if (GUI.Button(btnRectC, "Import", ButtonStyle()))
+                                                ModulesInstaller.InstallModule(module);
+                                        }
+                                        else
+                                        {
+                                            if (GUI.Button(btnRectC, "Import by link", ButtonStyle()))
+                                                Application.OpenURL(module.download);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        GUI.Label(rect, "package not found", labelStyleGray);
+                                    }
+                                }
+
+                                rect = GUILayoutUtility.GetRect(new GUIContent("Doc"), GUIStyle.none, GUILayout.Width(columnWidth_Control / 3 - 10), GUILayout.Height(rowHeight));
+
+                                if (isSelectPanel)
+                                { }
+                                else if (module.doc != string.Empty && module.doc != null)
+                                {
+                                    rect.x += 23;
+
+                                    if (GUI.Button(rect, "Doc", ButtonStyle()))
+                                    {
+#if RU_YG2
+                                        Application.OpenURL(module.doc);
+#else
+                                        Application.OpenURL(module.doc + "?en=");
+#endif
+                                    }
+                                }
+                                else
+                                {
+                                    rect.x += 23;
+                                    GUI.Label(rect, "not doc", labelStyleGray);
+                                }
+                            }
+                        }
+                    }
+
+                    void ButtonUpdate()
+                    {
+                        if (GUI.Button(btnRectC, "Update", allowUpdateStyle))
+                        {
+                            if (!module.noLoad)
+                            {
+                                if (module.nameModule == InfoYG.NAME_PLUGIN && removeBeforeImport)
+                                {
+                                    DeleteAndUpdatePlugin(module);
+                                }
+                                else
+                                {
+                                    ModulesInstaller.InstallModule(module);
+                                }
+                            }
+                            else
+                            {
+                                Application.OpenURL(module.download);
+                            }
+                        }
+                    }
+
+                    void DeleteModule(Module module, Rect rectForButtons, bool massDeletion)
+                    {
+                        string pathDelete = string.Empty;
+                        bool isModulPlatform = false;
+
+                        if (module.nameModule == InfoYG.NAME_PLUGIN)
+                        {
+                            pathDelete = InfoYG.PATCH_PC_YG2;
+                        }
+                        else
+                        {
+                            string patchModules = $"{InfoYG.PATCH_PC_MODULES}/{module.nameModule}";
+                            string patchPlatforms = $"{InfoYG.PATCH_PC_PLATFORMS}/{module.nameModule}";
+                            string patchFormatPlatforms = $"{InfoYG.PATCH_PC_PLATFORMS}/{module.nameModule + "Integration"}";
+
+                            if (Directory.Exists(patchModules))
+                                pathDelete = patchModules;
+
+                            if (Directory.Exists(patchPlatforms))
+                            {
+                                pathDelete = patchPlatforms;
+                                isModulPlatform = true;
+                            }
+                            else if (Directory.Exists(patchFormatPlatforms))
+                            {
+                                pathDelete = patchFormatPlatforms;
+                                isModulPlatform = true;
+                            }
+                        }
+
+                        if (pathDelete != string.Empty)
+                        {
+                            bool allowDeletion = false;
+
+                            if (module.nameModule == InfoYG.NAME_PLUGIN)
+                            {
+                                if (massDeletion)
+                                {
+                                    allowDeletion = true;
+                                }
+                                else if (GUI.Button(rectForButtons, "Delete all", ButtonStyle()))
+                                {
+                                    if (WarningDeletePlugin())
+                                        allowDeletion = true;
+                                }
+
+                                if (allowDeletion)
+                                {
+                                    DeletePlugin();
+                                }
+                            }
+                            else
+                            {
+                                if (massDeletion)
+                                {
+                                    allowDeletion = true;
+                                }
+                                else if (GUI.Button(rectForButtons, "Delete", ButtonStyle()))
+                                {
+                                    allowDeletion = EditorUtility.DisplayDialog(Langs.deleteModule, $"{Langs.deleteModule} {module.nameModule}?", "Ok", Langs.cancel);
+                                }
+
+                                if (allowDeletion)
+                                {
+                                    if (isModulPlatform)
+                                    {
+                                        PlatformSettings.DeletePlatform();
+                                        ModulesInstaller.DeletePlatformWebGLTemplate(module.nameModule);
+                                        DefineSymbols.RemoveDefine(module.nameModule + "Platform_yg");
+                                    }
+                                    else
+                                    {
+                                        DefineSymbols.RemoveDefine(module.nameModule + "_yg");
+                                    }
+
+                                    DeleteModuleDirectory(pathDelete);
+                                    AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                                    DefineSymbols.ModulesDefineSymbols();
+                                    InitData(ServerInfo.saveInfo);
+                                }
                             }
                         }
                         else
                         {
-                            GUI.Label(rect, "package not found", labelStyleGray);
+                            GUI.Label(rect, "manual deletion", labelStyleGray);
                         }
                     }
-
-                    rect = GUILayoutUtility.GetRect(new GUIContent("Doc"), GUIStyle.none, GUILayout.Width(columnWidth_Control / 3 - 10), GUILayout.Height(rowHeight));
-
-                    if (modules[i].doc != string.Empty && modules[i].doc != null)
-                    {
-                        rect.x += 23;
-
-                        if (GUI.Button(rect, "Doc", ButtonStyle()))
-                            Application.OpenURL(modules[i].doc);
-                    }
-                    else
-                    {
-                        GUIStyle notDocStyle = TextStyles.Gray();
-                        rect.x += 13;
-                        notDocStyle.alignment = TextAnchor.MiddleRight;
-                        GUI.Label(rect, "not doc", notDocStyle);
-                    }
-
-                    GUILayout.EndHorizontal();
                 }
-
-                GUILayout.EndHorizontal();
             }
 
-            EditorGUILayout.EndScrollView();
-
-            bool IsUpdatePlugin()
-            {
-                for (int i = 0; i < modules.Count; i++)
-                {
-                    if (modules[i].nameModule == InfoYG.NAME_PLUGIN)
-                    {
-                        float.TryParse(modules[i].projectVersion, NumberStyles.Float, CultureInfo.InvariantCulture, out float projectVersion);
-                        float.TryParse(modules[i].lastVersion, NumberStyles.Float, CultureInfo.InvariantCulture, out float lastVersion);
-
-                        if (projectVersion >= lastVersion)
-                            return true;
-                        else
-                            break;
-                    }
-                }
-
-                EditorUtility.DisplayDialog($"Update PluginYG first", Langs.updatePluginFirst, "Ok");
-                return false;
-            }
+            if (EditorUtils.IsMouseOverWindow(this))
+                Repaint();
 
             GUIStyle ButtonStyle()
             {
@@ -584,54 +728,259 @@ namespace YG.EditorScr
                 else
                     return YGEditorStyles.debutton;
             }
+
+            GUIStyle GreenButtonStyle()
+            {
+                GUIStyle style = new GUIStyle(ButtonStyle());
+
+                style.normal.textColor =
+                    style.hover.textColor =
+                    style.active.textColor =
+                    style.focused.textColor =
+                    style.onNormal.textColor =
+                    style.onHover.textColor =
+                    style.onActive.textColor =
+                    style.onFocused.textColor = TextStyles.colorGreen;
+
+                return style;
+            }
         }
 
-        private void DeletePluginYG()
+        private void DrawTabsBar()
+        {
+            GUILayout.Space(6);
+
+            using (new GUILayout.HorizontalScope(YGEditorStyles.box))
+            {
+                var hasUpdatesModules = HasUpdatesForTab(TabSection.Modules);
+                var hasUpdatesPlatforms = HasUpdatesForTab(TabSection.Platforms);
+                var hasUpdatesTools = HasUpdatesForTab(TabSection.Tools);
+
+                string name;
+#if RU_YG2
+                name = "Модули";
+#else
+                name = "Modules";
+#endif
+                if (DrawTabButton(name, currentTab == TabSection.Modules, hasUpdatesModules))
+                    SetTab(TabSection.Modules);
+#if RU_YG2
+                name = "Платформы";
+#else
+                name = "Platforms";
+#endif
+                if (DrawTabButton(name, currentTab == TabSection.Platforms, hasUpdatesPlatforms))
+                    SetTab(TabSection.Platforms);
+#if RU_YG2
+                name = "Инструменты";
+#else
+                name = "Tools";
+#endif
+                if (DrawTabButton(name, currentTab == TabSection.Tools, hasUpdatesTools))
+                    SetTab(TabSection.Tools);
+            }
+        }
+
+        private bool DrawTabButton(string title, bool active, bool highlightGreen)
+        {
+            GUIStyle style = new GUIStyle(YGEditorStyles.button);
+
+            if (highlightGreen)
+            {
+                style.normal.textColor =
+                    style.hover.textColor =
+                    style.active.textColor =
+                    style.focused.textColor = TextStyles.colorGreen;
+            }
+
+            Rect r = GUILayoutUtility.GetRect(140, 22, style);
+            bool hover = r.Contains(Event.current.mousePosition);
+
+            Color prevBg = GUI.backgroundColor;
+
+            if (!active && !hover)
+            {
+                GUI.backgroundColor = new Color(0.5f, 0.5f, 0.5f, 1f);
+            }
+            else
+            {
+                GUI.backgroundColor = prevBg;
+            }
+
+            bool pressed = GUI.Button(r, title, style);
+
+            GUI.backgroundColor = prevBg;
+            return pressed;
+        }
+
+        private void SetTab(TabSection tab)
+        {
+            if (currentTab == tab)
+                return;
+
+            currentTab = tab;
+            EditorPrefs.SetInt(TAB_KEY, (int)currentTab);
+
+            ApplyTabFilterAndBuildVisibleList();
+            Repaint();
+        }
+
+        private bool HasUpdatesForTab(TabSection tab)
+        {
+            if (!cloudComplete || modulesAll == null || modulesAll.Count == 0)
+                return false;
+
+            IEnumerable<Module> filtered;
+
+            switch (tab)
+            {
+                case TabSection.Modules:
+                    filtered = modulesAll.Where(m => !m.platform && !m.tool);
+                    break;
+                case TabSection.Platforms:
+                    filtered = modulesAll.Where(m => m.platform && !m.tool);
+                    break;
+                case TabSection.Tools:
+                    filtered = modulesAll.Where(m => m.tool);
+                    break;
+                default:
+                    filtered = modulesAll;
+                    break;
+            }
+
+            foreach (var m in filtered)
+            {
+                if (string.IsNullOrEmpty(m.projectVersion))
+                    continue; // не импортирован
+
+                // наличие обновления = не текущая версия
+                if (!ModulesInstaller.IsModuleCurrentVersion(m))
+                    return true;
+            }
+
+            return false;
+        }
+
+        // есть ли вообще обновления в списке (включая noLoad)
+        private bool HasAnyUpdatesInList(List<Module> list)
+        {
+            if (!cloudComplete || list == null || list.Count == 0)
+                return false;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m == null) continue;
+                if (m.nameModule == SELECT_MODULES_KEY) continue;
+
+                if (string.IsNullOrEmpty(m.projectVersion))
+                    continue;
+
+                if (!ModulesInstaller.IsModuleCurrentVersion(m))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool HasBatchUpdatableUpdatesInList(List<Module> list)
+        {
+            if (!cloudComplete || list == null || list.Count == 0)
+                return false;
+
+            for (int i = 0; i < list.Count; i++)
+            {
+                var m = list[i];
+                if (m == null) continue;
+                if (m.nameModule == SELECT_MODULES_KEY) continue;
+
+                if (m.noLoad)
+                    continue;
+
+                if (string.IsNullOrEmpty(m.projectVersion))
+                    continue;
+
+                if (!ModulesInstaller.IsModuleCurrentVersion(m))
+                    return true;
+            }
+
+            return false;
+        }
+
+
+        private bool WarningDeletePlugin()
+        {
+            if (!EditorUtility.DisplayDialog($"{Langs.correctDelete} {InfoYG.NAME_PLUGIN}", Langs.fullDeletePluginYG, Langs.deleteAll, Langs.cancel))
+                return false;
+            if (!EditorUtility.DisplayDialog($"{Langs.correctDelete} {InfoYG.NAME_PLUGIN}", Langs.protectionAccidentalDeletion, Langs.deleteAll, Langs.cancel))
+                return false;
+            return true;
+        }
+
+        private void DeletePlugin()
         {
             EditorUtility.DisplayDialog($"{Langs.correctDelete} {InfoYG.NAME_PLUGIN}", Langs.fullDeletePluginYGComplete, "Ok");
 
             EditorPrefs.DeleteKey(REMOVE_BEFORE_IMPORT_TOGGLE_KEY);
             Server.DeletePrefs();
 
-            for (int i = 0; i < modules.Count; i++)
-                DefineSymbols.RemoveDefine(modules[i].nameModule + "_yg");
-
-            if (InfoYG.Inst().Basic.platform)
-                DefineSymbols.RemoveDefine(PlatformSettings.currentPlatformFullName + "_yg");
-
-            DefineSymbols.RemoveDefine(DefineSymbols.YG2_DEFINE);
-            DefineSymbols.RemoveDefine(DefineSymbols.LANG_DEFINE);
-            DefineSymbols.RemoveDefine(DefineSymbols.TMP_DEFINE);
-            DefineSymbols.RemoveDefine(DefineSymbols.NJSON_DEFINE);
-            DefineSymbols.RemoveDefine(DefineSymbols.NJSON_STORAGE_DEFINE);
+            DefineSymbols.RemoveAllPluginDefines();
 
             Close();
 
             string[] templateFolders = Directory.GetDirectories(InfoYG.PATCH_PC_PLATFORMS);
             for (int i = 0; i < templateFolders.Length; i++)
-                DeletePlatformWebGLTemplate(Path.GetFileName(templateFolders[i]));
+                ModulesInstaller.DeletePlatformWebGLTemplate(Path.GetFileName(templateFolders[i]));
 
-            FileYG.DeleteDirectory(InfoYG.PATCH_PC_YG2);
+            DeleteModuleDirectory(InfoYG.PATCH_PC_YG2);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
         }
 
-        private void UpdatePlyginYG(Module module)
+        private static void DeleteModuleDirectory(string pathDelete)
+        {
+            string assetPath = ToAssetPath(pathDelete);
+
+            if (!string.IsNullOrEmpty(assetPath))
+            {
+                if (AssetDatabase.DeleteAsset(assetPath))
+                    return;
+            }
+
+            FileYG.DeleteDirectory(pathDelete);
+        }
+
+        private static string ToAssetPath(string fullPath)
+        {
+            if (string.IsNullOrEmpty(fullPath))
+                return null;
+
+            string dataPath = Path.GetFullPath(Application.dataPath).Replace("\\", "/");
+            string normalizedPath = Path.GetFullPath(fullPath).Replace("\\", "/");
+
+            if (!normalizedPath.StartsWith(dataPath + "/", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            return "Assets" + normalizedPath.Substring(dataPath.Length);
+        }
+
+        private void DeleteAndUpdatePlugin(Module module)
         {
             if (module.download == string.Empty)
                 return;
 
             string tempScrName = "UpdatePluginYGTemp";
-            string tempScrText = File.ReadAllText($"{InfoYG.PATCH_PC_YG2}/Scripts/Server/Editor/{tempScrName}.txt");
+            string tempScrText = FileYG.ReadAllText($"{InfoYG.PATCH_PC_YG2}/Scripts/Server/Editor/{tempScrName}.txt");
             tempScrText = tempScrText.Replace("DOWNLOAD_URL_KEY", module.download);
             tempScrText = tempScrText.Replace("PATH_YG2", InfoYG.CORE_FOLDER_YG2);
 
             string scenesFile = $"{InfoYG.PATCH_PC_EXAMPLE}/Resources/DemoSceneNames.txt";
             if (File.Exists(scenesFile))
             {
-                string scenesText = File.ReadAllText(scenesFile);
+                string scenesText = FileYG.ReadAllText(scenesFile);
                 tempScrText = tempScrText.Replace("EXAMPLE_SCENES = string.Empty", @$"EXAMPLE_SCENES = @""{scenesText}""");
             }
 
-            File.WriteAllText($"{Application.dataPath}/{tempScrName}.cs", tempScrText);
+            FileYG.WriteAllText($"{Application.dataPath}/{tempScrName}.cs", tempScrText);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -639,101 +988,21 @@ namespace YG.EditorScr
             CompilationPipeline.RequestScriptCompilation();
         }
 
-        private static void DeletePlatformWebGLTemplate(string folderNamePlatform)
+        private bool HasAnyUpdatesAll()
         {
-            FileYG.DeleteDirectory($"{InfoYG.PATCH_PC_WEBGLTEMPLATES}/{folderNamePlatform}");
-
-            if (FileYG.IsFolderEmpty(InfoYG.PATCH_PC_WEBGLTEMPLATES))
-                Directory.Delete(InfoYG.PATCH_PC_WEBGLTEMPLATES);
-        }
-
-        private Module GetModuleByName(string name)
-        {
-            foreach (Module module in modules)
-            {
-                if (name == module.nameModule)
-                    return module;
-            }
-            return null;
-        }
-
-        private async void ImportPackage(Module module)
-        {
-            await ImportPackageAsync(module);
-        }
-
-        private async Task<bool> ImportPackageAsync(Module module)
-        {
-            if (!EditorPrefs.HasKey("approvalDownloadPackagesYG2"))
-            {
-                if (EditorUtility.DisplayDialog($"{Langs.importPackage} {module.nameModule}", Langs.thirdPartyDialog, "Ok", Langs.cancel))
-                {
-                    EditorPrefs.SetInt("approvalDownloadPackagesYG2", 1);
-                }
-                else return false;
-            }
-
-            if (module.dependencies != null && module.dependencies != string.Empty)
-            {
-                List<string> dependencies = module.dependencies.Split(", ").ToList();
-                string dependenciesStr = string.Empty;
-
-                for (int i = dependencies.Count - 1; i > -1; i--)
-                {
-                    if (GetModuleByName(dependencies[i]).projectVersion != string.Empty)
-                    {
-                        dependencies.RemoveAt(i);
-                    }
-                    else
-                    {
-                        dependenciesStr += $"- {dependencies[i]}\n";
-                    }
-                }
-
-                if (dependencies.Count > 0)
-                {
-                    EditorUtility.DisplayDialog(Langs.InstallDependencies, $"{Langs.importDependenciesDialog1} '{module.nameModule}' {Langs.importDependenciesDialog2}\n\n{dependenciesStr}", "Ok");
-                    return false;
-                }
-            }
-
-            if (string.IsNullOrEmpty(module.download))
-            {
-                Debug.LogError("URL is empty! (Import package)");
+            if (!cloudComplete || modulesAll == null || modulesAll.Count == 0)
                 return false;
-            }
 
-            try
+            foreach (var m in modulesAll)
             {
-                string downloadPath = $"{InfoYG.PATCH_PC_EDITOR}/{module.nameModule}_tempYG.unitypackage";
-                downloadProcessPackage = true;
+                if (string.IsNullOrEmpty(m.projectVersion))
+                    continue;
 
-                await DownloadPackageAsync(module.download, downloadPath);
-
-                AssetDatabase.ImportPackage(downloadPath, true);
-                File.Delete(downloadPath);
-                downloadProcessPackage = false;
-
-                return true;
+                if (!ModulesInstaller.IsModuleCurrentVersion(m))
+                    return true;
             }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"Error downloading or importing package '{module.nameModule}': {e.Message}");
-                downloadProcessPackage = false;
-                return false;
-            }
-        }
 
-        private async Task DownloadPackageAsync(string packageUrl, string savePath)
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                HttpResponseMessage response = await client.GetAsync(packageUrl);
-                response.EnsureSuccessStatusCode();
-
-                byte[] packageBytes = await response.Content.ReadAsByteArrayAsync();
-                File.WriteAllBytes(savePath, packageBytes);
-            }
+            return false;
         }
     }
 }

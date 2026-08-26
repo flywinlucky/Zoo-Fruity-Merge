@@ -14,6 +14,7 @@ namespace YG
     public partial class InfoYG : ScriptableObject
     {
         public static InfoYG instance;
+
         public static InfoYG Inst()
         {
             if (instance == null)
@@ -31,13 +32,14 @@ namespace YG
                         Directory.CreateDirectory(directory);
 
                     AssetDatabase.CreateAsset(infoYG, path);
+                    AssetDatabase.SaveAssets();
                     AssetDatabase.Refresh();
-                    infoRes = Resources.Load<InfoYG>(NAME_INFOYG_FILE);
+                    infoRes = AssetDatabase.LoadAssetAtPath<InfoYG>(path);
 
-                    instance = infoRes;
-#if PLATFORM_WEBGL
+                    instance = infoRes != null ? infoRes : infoYG;
+
                     if (EditorUtility.DisplayDialog($"Optimal settings",
-                        "Выставить оптимальные настройки проекта и плагина для платформы по умолчанию «Яндекс Игры»? (Рекомендуется)\n\nSet the optimal project and plugin settings for the default platform «Yandex Games» platform? (Recommended)",
+                        "Установить оптимальные настройки проекта и плагина для платформы по умолчанию «Яндекс Игры»? (Рекомендуется)\n\nSet the optimal project and plugin settings for the default platform «Yandex Games» platform? (Recommended)",
                         "Yes",
                         "No"))
                     {
@@ -46,21 +48,10 @@ namespace YG
                     }
                     else
                     {
-                        NullPlatform();
-                    }
-#else
-                    EditorUtility.DisplayDialog($"Optimal settings",
-                        "В настройках билда не выбрана платформа WebGL. Оптимальные настройки для стандартной платформы «Яндекс Игры» не будут установлены.\nЧтобы их установить: смените платформу на WebGL, в настройках плагина включите опцию Auto Apply Settings и переключите платформу в поле Platforms.\n\nThe WebGL platform is not selected in the build settings. The optimal settings for the standard Yandex Games platform will not be set.\nTo install them: change the platform to WebGL, enable the Auto Apply Settings option in the plugin settings and switch the platform in the Platforms field.",
-                        "Ok");
-
-                    NullPlatform();
-#endif
-                    void NullPlatform()
-                    {
                         instance.Basic.platform = null;
                         instance.Basic.autoApplySettings = false;
                         instance.Basic.archivingBuild = false;
-                        CleanPlatforms();
+                        SetPlatform();
                         CompilationPipeline.RequestScriptCompilation();
                     }
                 }
@@ -68,14 +59,15 @@ namespace YG
                 if (infoRes == null)
                     Debug.LogError($"{NAME_INFOYG_FILE} not found!");
 #endif
-                instance = infoRes;
+                if (infoRes != null)
+                    instance = infoRes;
             }
 
             return instance;
         }
 
-        public ProjectSettings platformOptions { get => Basic.platform.projectSettings; }
 #if UNITY_EDITOR
+        public ProjectSettings platformOptions { get => Basic.platform.projectSettings; }
         public static void SetDefaultPlatform()
         {
             string standartPlatformSettingsPath = $"{PATCH_ASSETS_PLATFORMS}/YandexGames/YandexGames.asset";
@@ -89,39 +81,46 @@ namespace YG
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
 
-                if (YG2.infoYG.Basic.autoApplySettings)
+                if (instance.Basic.autoApplySettings)
                     instance.Basic.platform.ApplyProjectSettings();
 
                 EditorScr.DefineSymbols.PlatformDefineSymbols();
             }
         }
 
-        public static void CleanPlatforms(string ignorePlatform = null)
+        public static void SetPlatform(string selectPlatform = null)
         {
             string[] platfFolders = Directory.GetDirectories(PATCH_PC_PLATFORMS);
 
             for (int i = 0; i < platfFolders.Length; i++)
             {
-                platfFolders[i] = platfFolders[i].Replace("\\", "/");
-                string folder = platfFolders[i] + "/SDK";
-
+                string folder = Path.Combine(platfFolders[i], "SDK").Replace("\\", "/");
                 if (!Directory.Exists(folder))
                     continue;
 
-                string[] files = Directory.GetFiles(folder);
-                IEnumerable<string> asmdefFiles = files.Where(file => Path.GetExtension(file).Equals(".asmdef", StringComparison.OrdinalIgnoreCase));
-                List<string> asmdefList = asmdefFiles.ToList();
+                string platformName = (Path.GetFileName(platfFolders[i]) + "Platform").Replace("Integration", "");
+                string asmdefPath = Path.Combine(folder, platformName + ".asmdef").Replace("\\", "/");
 
-                for (int a = 0; a < asmdefList.Count; a++)
-                    EditorScr.FileYG.Delete(asmdefList[a]);
+                bool shouldHaveAsmdef = !string.IsNullOrEmpty(selectPlatform) && platformName != selectPlatform;
 
-                string platformName = Path.GetFileName(platfFolders[i]) + "Platform";
+                bool asmdefExists = File.Exists(asmdefPath);
 
-                if (!string.IsNullOrEmpty(ignorePlatform) && platformName != ignorePlatform)
+                if (shouldHaveAsmdef)
                 {
-                    string content = File.ReadAllText($"{PATCH_PC_YG2}/Scripts/Platform/Editor/AsmdefPlatformCreate.txt");
-                    content = content.Replace("___PLATFORM_NAME___", platformName);
-                    File.WriteAllText($"{folder}/{platformName}.asmdef", content);
+                    if (!asmdefExists)
+                    {
+                        string templatePath = $"{PATCH_PC_YG2}/Scripts/Platform/Editor/AsmdefPlatformCreate.txt";
+                        string content = File.ReadAllText(templatePath);
+                        content = content.Replace("___PLATFORM_NAME___", platformName);
+                        File.WriteAllText(asmdefPath, content);
+                    }
+                }
+                else
+                {
+                    if (asmdefExists)
+                    {
+                        File.Delete(asmdefPath);
+                    }
                 }
             }
         }

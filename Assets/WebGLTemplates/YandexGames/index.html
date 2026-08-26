@@ -18,6 +18,7 @@
             padding: 0;
             margin: 0;
             overflow: hidden;
+            overscroll-behavior: none;
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             -khtml-user-select: none;
@@ -93,7 +94,7 @@
 
         if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
             container.className = "unity-mobile";
-            config.devicePixelRatio = 1;
+            //config.devicePixelRatio = 1;
         }
 
         // The background image when loading the game. When building a build, the code changes depending on the project settings.
@@ -109,33 +110,104 @@
         let initYSDK = false;
         let initGame = false;
         let syncInit = false;
+        let isVisibility = true;
+        let isPausedGame = false;
         const NO_DATA = 'no data';
 
         document.addEventListener('contextmenu', event => event.preventDefault());
-        function FocusGame() {
-            window.focus();
-            canvas.focus();
-        }
+        document.addEventListener('visibilitychange', () => SetVisibility(!document.hidden));
+        window.addEventListener('blur', () => SetVisibility(false));
+        window.addEventListener('focus', () => SetVisibility(true));
+
         window.addEventListener('pointerdown', () => {
             FocusGame();
-        });
-        window.addEventListener('touchstart', () => {
-            FocusGame();
+            SetVisibility(true);
         });
 
-        document.addEventListener('visibilitychange', function () {
-            if (ysdk !== null && initGame == true) {
-                if (document.hidden) {
+        window.addEventListener('resize', () => FocusGame());
+        document.addEventListener('fullscreenchange', () => FocusGame());
+
+        const oRequestPointerLock = Element.prototype.requestPointerLock;
+        Element.prototype.requestPointerLock = async function hkRequestPointerLock(...args) {
+            try {
+                (args[0] ||= {}).unadjustedMovement = true;
+                await oRequestPointerLock.apply(this, args);
+            } catch (err) {
+                console.log(err);
+            }
+        };
+
+        function InstallBlurFocusBlocker() {
+            if (!('onblur' in document)) return;
+            if (window.blurFocusHandlersInstalled) return;
+
+            window.addEventListener('blur', function () {
+                let blockerButton = document.createElement('button');
+                blockerButton.style.position = 'fixed';
+                blockerButton.style.top = '0';
+                blockerButton.style.left = '0';
+                blockerButton.style.width = '100%';
+                blockerButton.style.height = '100%';
+                blockerButton.style.zIndex = '9999';
+                blockerButton.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+                blockerButton.style.border = 'none';
+                blockerButton.style.cursor = 'default';
+
+                document.body.appendChild(blockerButton);
+
+                function removeBlocker() {
+                    if (blockerButton && blockerButton.parentNode) {
+                        blockerButton.parentNode.removeChild(blockerButton);
+                    }
+                    window.removeEventListener('focus', removeBlocker);
+                }
+
+                window.addEventListener('focus', removeBlocker);
+            });
+
+            window.blurFocusHandlersInstalled = true;
+        }
+
+        function FocusGame(checkingPauseStatus = true) {
+            if (!canvas) return;
+
+            requestAnimationFrame(() => {
+                if (checkingPauseStatus && isPausedGame) return;
+
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' ||
+                    active.tagName === 'TEXTAREA' ||
+                    active.isContentEditable
+                )) {
+                    return;
+                }
+
+                canvas.focus({ preventScroll: true });
+            });
+        }
+
+        function SetVisibility(visibility) {
+            if (ysdk !== null && initGame === true && isVisibility !== visibility) {
+                isVisibility = visibility;
+                if (!visibility) {
                     YG2Instance('SetFocusWindowGame', 'false');
                 }
                 else {
                     YG2Instance('SetFocusWindowGame', 'true');
-
-                    if ((ysdk.deviceInfo.isMobile() || ysdk.deviceInfo.isTablet()) && ysdk.screen.fullscreen.status == 'off')
-                        ysdk.screen.fullscreen.request();
                 }
             }
-        });
+        }
+
+        const PauseCallback = () => {
+            isPausedGame = true;
+            YG2Instance('SetPauseGame', 'true');
+        };
+
+        const ResumeCallback = () => {
+            isPausedGame = false;
+            YG2Instance('SetPauseGame', 'false');
+            FocusGame(false);
+        };
 
         const script = document.createElement("script");
         script.src = loaderUrl;
@@ -148,11 +220,17 @@
                     progressBarFull.style.width = `${100 * adjustedProgress}%`;
                 }).then((unityInstance) => {
                     ygGameInstance = unityInstance;
+                    loadingCover.style.background = "";
                     loadingCover.style.display = "none";
+                    FocusGame();
+                    // Fill Background [Build Modify]
                 }).catch((message) => {
                     console.error(message);
                 });
             };
+            
+            InstallBlurFocusBlocker();
+            InitYSDK();
             
             if (IsLocalHost() || syncInit)
                 StartUnityInstance_IfUnloaded();
@@ -166,7 +244,6 @@
         function IsLocalHost() {
             try {
                 if (window.top !== window) {
-                    console.warn("The application is running in an iframe");
                     return false;
                 }
 
@@ -211,19 +288,17 @@
             }
         }
 
-        function LogStyledMessage(message, style) {
+        function LogStyledMessage(message, style = 'color: #FFDF73; background-color: #454545') {
             console.log('%c' + message, style);
         }
-        function LogStyledMessage(message) {
-            console.log('%c' + message, 'color: #FFDF73; background-color: #454545');
-        }
 
-        InitYSDK();
         async function InitYSDK() {
             try {
                 if (IsLocalHost()) return;
 
                 ysdk = await YaGames.init();
+                ysdk.on('game_api_pause', PauseCallback);
+                ysdk.on('game_api_resume', ResumeCallback);
 
                 // Additional init0 modules
 
@@ -249,6 +324,11 @@
 
         function InitGame() {
             initGame = true;
+
+            setTimeout(function () {
+                if (isPausedGame == true)
+                    YG2Instance('SetPauseGame', 'true');
+            }, 100);
 
             // Additional start modules
         }

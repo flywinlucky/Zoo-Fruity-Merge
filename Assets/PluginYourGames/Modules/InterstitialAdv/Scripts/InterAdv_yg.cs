@@ -59,21 +59,25 @@ namespace YG
 #endif
 
 #if YandexGamesPlatform_yg
-            if (infoYG.InterstitialAdv.showFirstAdv)
-                YGInsides.SetTimerInterAdv();
+            YGInsides.SetTimerInterAdv();
 #else
 #if UNITY_EDITOR
             if (infoYG.InterstitialAdv.showFirstAdv)
                 YGInsides.SetTimerInterAdv();
 #else
+#if !UNITY_ANDROID
             if (infoYG.InterstitialAdv.showFirstAdv)
                 InterstitialAdvShow();
+#endif
 #endif
 #endif
         }
 
         public static void InterstitialAdvShow()
         {
+#if UNITY_EDITOR
+            if (!infoYG.Simulation.enableInterAdv) return;
+#endif
             if (skipIterAdv)
             {
                 skipIterAdv = false;
@@ -89,7 +93,6 @@ namespace YG
             {
                 onAdvNotification?.Invoke();
 #if UNITY_EDITOR
-                Message("Interstitial Adv");
                 if (infoYG.Simulation.testFailAds)
                 {
                     Message("Error Interstitial Adv simulation");
@@ -97,6 +100,7 @@ namespace YG
                 }
                 AdvCallingSimulation.InterstitialAdvOpen();
 #else
+                Message("Interstitial Adv");
                 iPlatform.InterstitialAdvShow();
 #endif
             }

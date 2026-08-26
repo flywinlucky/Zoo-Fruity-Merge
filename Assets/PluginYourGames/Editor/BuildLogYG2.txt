@@ -1,3 +1,0 @@
-Build path: C:/Users/flywi/Desktop/wm hunter/AH_GeneratedBuild.exe
-Build number: 13
-PluginYG version: 2.0031

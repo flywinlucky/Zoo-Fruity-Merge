@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine.UI;
 using UnityEngine;
 using UnityEngine.Networking;
+using System;
 
 namespace YG
 {
@@ -19,6 +20,8 @@ namespace YG
         public Image spriteImage;
         public GameObject loadAnimObj;
         [SerializeField] bool log;
+
+        public Action onTextureLoad;
 
         private struct LoadTextures { public string link; public Texture2D texture; }
         private static List<LoadTextures> saveTextures = new List<LoadTextures>();
@@ -38,7 +41,7 @@ namespace YG
 
         public void Load(string url)
         {
-            if (url == "null" && url == null && url == string.Empty)
+            if (string.IsNullOrEmpty(url) || url == "null")
                 return;
 
             Texture2D existingTexture = ExistingTexture(url);
@@ -136,7 +139,10 @@ namespace YG
             }
 
             if (loadAnimObj)
+            {
                 loadAnimObj.SetActive(false);
+                onTextureLoad?.Invoke();
+            }
         }
     }
 }

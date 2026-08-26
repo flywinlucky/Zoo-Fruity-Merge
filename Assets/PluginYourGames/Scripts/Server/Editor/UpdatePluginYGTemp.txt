@@ -34,7 +34,7 @@ public class UpdatePluginYGTemp
                 byte[] packageBytes = await response.Content.ReadAsByteArrayAsync();
                 File.WriteAllBytes(downloadPath, packageBytes);
 
-                AssetDatabase.ImportPackage(downloadPath, true);
+                AssetDatabase.ImportPackage(downloadPath, false);
                 File.Delete(downloadPath);
             }
         }
@@ -60,7 +60,6 @@ public class UpdatePluginYGTemp
         SessionState.SetBool("PluginYG_LoadServerComplete", false);
 
         string startPath = $"{Application.dataPath}/PATH_YG2";
-        DeleteDirectory($"{startPath}/Editor");
         DeleteDirectory($"{startPath}/Example");
         DeleteDirectory($"{startPath}/Scripts");
         AssetDatabase.Refresh();

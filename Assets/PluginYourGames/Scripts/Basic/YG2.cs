@@ -6,7 +6,6 @@ using YG.Utils;
 
 namespace YG
 {
-    [DefaultExecutionOrder(-5000)]
     public static partial class YG2
     {
         public static InfoYG infoYG { get { return InfoYG.Inst(); } }
@@ -16,6 +15,7 @@ namespace YG
         public static YGSendMessage sendMessage;
         public static OptionalPlatform optionalPlatform = new OptionalPlatform();
         public static string platform { get => PlatformSettings.currentPlatformBaseName; }
+        public static int buildNumber { get => infoYG.Basic.buildNumber; }
         public static bool isSDKEnabled { get => _SDKEnabled; }
         private static bool _SDKEnabled;
         public static bool isFirstGameSession;
@@ -24,9 +24,6 @@ namespace YG
         private static bool syncInitSDKComplete, awakePassed;
 
         public static Action onGetSDKData;
-        public static Action<bool> onPauseGame;
-        private static bool pauseGame;
-        public static bool isPauseGame { get => pauseGame; }
 
         public static bool nowAdsShow
         {
@@ -105,7 +102,7 @@ namespace YG
 #if UNITY_EDITOR
         public static async void SyncInitialization()
         {
-            if (infoYG.Basic.simulationLoadScene)
+            if (infoYG.Basic.initDelaySimulation)
                 await System.Threading.Tasks.Task.Delay(1000);
 #else
         public static void SyncInitialization()
@@ -133,7 +130,7 @@ namespace YG
 #if !UNITY_EDITOR
                         SceneManager.LoadScene(infoYG.Basic.loadSceneIndex);
 #else
-                        if (infoYG.Basic.simulationLoadScene)
+                        if (infoYG.Basic.initDelaySimulation)
                             SceneManager.LoadScene(infoYG.Basic.loadSceneIndex);
 #endif
                         void LoadLastScene(Scene scene, LoadSceneMode mode)
@@ -153,7 +150,7 @@ namespace YG
                 if (infoYG.Basic.loadSceneIfSDKLate && infoYG.Basic.loadSceneIndex != 0)
                 {
 #if UNITY_EDITOR
-                    if (infoYG.Basic.simulationLoadScene)
+                    if (infoYG.Basic.initDelaySimulation)
 #endif
                         SceneManager.LoadScene(infoYG.Basic.loadSceneIndex);
                 }
@@ -165,45 +162,6 @@ namespace YG
             if (_SDKEnabled)
                 onGetSDKData?.Invoke();
         }
-
-        public static void PauseGame(bool pause, bool editTimeScale, bool editAudioPause, bool editCursor, bool editEventSystem)
-        {
-            if (pause == pauseGame)
-                return;
-
-            if (pause)
-            {
-                GameplayStop(true);
-            }
-            else
-            {
-                if (nowAdsShow)
-                    return;
-
-                GameplayStart(true);
-            }
-
-            pauseGame = pause;
-            onPauseGame?.Invoke(pause);
-
-            if (infoYG.Basic.autoPauseGame)
-            {
-                if (pause)
-                {
-                    GameObject pauseObj = new GameObject() { name = "PauseGameYG" };
-                    MonoBehaviour.DontDestroyOnLoad(pauseObj);
-                    PauseGameYG pauseScr = pauseObj.AddComponent<PauseGameYG>();
-                    pauseScr.Setup(editTimeScale, editAudioPause, editCursor, editEventSystem);
-                }
-                else
-                {
-                    if (PauseGameYG.inst != null)
-                        PauseGameYG.inst.PauseDisabled();
-                }
-            }
-        }
-        public static void PauseGame(bool pause) => PauseGame(pause, true, true, true, infoYG.Basic.editEventSystem);
-        public static void PauseGameNoEditEventSystem(bool pause) => PauseGame(pause, true, true, true, false);
 
         public static void Message(string message)
         {
