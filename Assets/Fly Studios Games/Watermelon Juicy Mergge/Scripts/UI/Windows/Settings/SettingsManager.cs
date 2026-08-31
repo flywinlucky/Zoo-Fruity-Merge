@@ -1,10 +1,17 @@
-using System;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UI;
+using WatermelonGameClone.Portal;
 
+/// <summary>
+/// Sound and music switches. The two toggles are the player's setting; the mixer is only ever a
+/// reflection of them, so the mixer is written from the saved value and never read back.
+/// </summary>
 public class SettingsManager : MonoBehaviour
 {
+    private const float VolumeOn = 0f;
+    private const float VolumeOff = -80f;
+
     [Header("Audio Mixer")]
     [Space]
     public AudioMixerGroup audioMixerGroup;
@@ -15,85 +22,65 @@ public class SettingsManager : MonoBehaviour
     public Toggle Music_Toggle;
     public bool Music_Bool; //Music Sound Bool
 
-    private void Awake()
-    {
-        if (PlayerPrefs.HasKey("Sound_FX_Toggle"))
-        {
-            if ((PlayerPrefs.GetInt("Sound_FX_Toggle") == 1))
-            {
-                audioMixerGroup.audioMixer.SetFloat("sfx_volume", 0); //Set SFX volume
-                Sound_Toggle.isOn = true;
-                Sound_Bool = true;
-            }
-            else
-            {
-                audioMixerGroup.audioMixer.SetFloat("sfx_volume", -80); //Set SFX volume
-                Sound_Toggle.isOn = false;
-                Sound_Bool = false;
-            }
-        }
+    private bool _applyingSavedState;
 
-        if (PlayerPrefs.HasKey("Music_Toggle"))
-        {
-            if ((PlayerPrefs.GetInt("Music_Toggle") == 1))
-            {
-                audioMixerGroup.audioMixer.SetFloat("music_volume", 0); //Set music volume
-                Music_Toggle.isOn = true;
-                Music_Bool = true;
-            }
-            else
-            {
-                audioMixerGroup.audioMixer.SetFloat("music_volume", -80); //Set music volume
-                Music_Toggle.isOn = false;
-                Music_Bool = false;
-            }
-        }
+    private void OnEnable()
+    {
+        ApplySavedState();
     }
 
     private void Start()
     {
-        UpdateSettingsData();
+        ApplySavedState();
+    }
+
+    /// <summary>
+    /// Pushes the saved settings into the toggles and the mixer. Guarded, because assigning
+    /// <c>isOn</c> fires the toggle's own callback and would otherwise write the value straight
+    /// back out as if the player had just pressed it.
+    /// </summary>
+    private void ApplySavedState()
+    {
+        _applyingSavedState = true;
+
+        Sound_Bool = ZooProgress.SoundOn;
+        Music_Bool = ZooProgress.MusicOn;
+
+        if (Sound_Toggle != null)
+            Sound_Toggle.isOn = Sound_Bool;
+
+        if (Music_Toggle != null)
+            Music_Toggle.isOn = Music_Bool;
+
+        ApplyToMixer("sfx_volume", Sound_Bool);
+        ApplyToMixer("music_volume", Music_Bool);
+
+        _applyingSavedState = false;
     }
 
     public void UpdateSoundSettings()
     {
-        if (Sound_Toggle.isOn == true)
-        {
-            Sound_Bool = true;
-            Sound_Toggle.isOn = true;
-            audioMixerGroup.audioMixer.SetFloat("sfx_volume", 0); //Set SFX volume
-            PlayerPrefs.SetInt("Sound_FX_Toggle", 1);
-        }
-        else
-        {
-            Sound_Bool = false;
-            Sound_Toggle.isOn = false;
-            audioMixerGroup.audioMixer.SetFloat("sfx_volume", -80); //Set SFX volume
-            PlayerPrefs.SetInt("Sound_FX_Toggle", 0);
-        }
+        if (Sound_Toggle == null || _applyingSavedState)
+            return;
+
+        Sound_Bool = Sound_Toggle.isOn;
+        ApplyToMixer("sfx_volume", Sound_Bool);
+        ZooProgress.SoundOn = Sound_Bool;
     }
 
     public void UpdateMusicSettings()
     {
-        if (Music_Toggle.isOn == true)
-        {
-            Music_Bool = true;
-            Music_Toggle.isOn = true;
-            audioMixerGroup.audioMixer.SetFloat("music_volume", 0); //Set music volume
-            PlayerPrefs.SetInt("Music_Toggle", 1);
-        }
-        else
-        {
-            Music_Bool = false;
-            Music_Toggle.isOn = false;
-            audioMixerGroup.audioMixer.SetFloat("music_volume", -80); //Set music volume
-            PlayerPrefs.SetInt("Music_Toggle", 0);
-        }
+        if (Music_Toggle == null || _applyingSavedState)
+            return;
+
+        Music_Bool = Music_Toggle.isOn;
+        ApplyToMixer("music_volume", Music_Bool);
+        ZooProgress.MusicOn = Music_Bool;
     }
 
-    private void UpdateSettingsData()
+    private void ApplyToMixer(string parameter, bool on)
     {
-        UpdateSoundSettings();
-        UpdateMusicSettings();
+        if (audioMixerGroup != null)
+            audioMixerGroup.audioMixer.SetFloat(parameter, on ? VolumeOn : VolumeOff);
     }
 }

@@ -79,7 +79,7 @@ MonoBehaviour:
   m_PixelsPerUnitMultiplier: 1
 --- !u!95 &3293695656368432891
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -96,7 +96,8 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &495014701448963070
 GameObject:
   m_ObjectHideFlags: 0
@@ -108,6 +109,7 @@ GameObject:
   - component: {fileID: 495014701448963069}
   - component: {fileID: 495014701448963059}
   - component: {fileID: 495014701448963068}
+  - component: {fileID: 3419120403727564187}
   m_Layer: 5
   m_Name: Text (TMP)
   m_TagString: Untagged
@@ -165,8 +167,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: AVAILABLE IN SKIN SELECTOR
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 4ae1368cb14963944bf6d685c05e7bb5, type: 2}
-  m_sharedMaterial: {fileID: 7423409246693961632, guid: 4ae1368cb14963944bf6d685c05e7bb5,
+  m_fontAsset: {fileID: 11400000, guid: a933f577d03139348bf5a1468bf33208, type: 2}
+  m_sharedMaterial: {fileID: 3502512618334885138, guid: a933f577d03139348bf5a1468bf33208,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -233,6 +235,23 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &3419120403727564187
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 495014701448963070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c30dbd2da4f9df4b991ceed90a9d3c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _key: available_in_skins
+  _argument: 
+  _shrinkToFit: 1
+  _minimumScale: 0.62
+  _authoredSize: 0
 --- !u!1 &495014701454249769
 GameObject:
   m_ObjectHideFlags: 0
@@ -312,7 +331,7 @@ MonoBehaviour:
   m_PixelsPerUnitMultiplier: 1
 --- !u!95 &8469879426542172066
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -329,7 +348,8 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &495014701518061869
 GameObject:
   m_ObjectHideFlags: 0
@@ -409,7 +429,7 @@ MonoBehaviour:
   m_PixelsPerUnitMultiplier: 1
 --- !u!95 &5890857054148257639
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -426,7 +446,8 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &495014702812818436
 GameObject:
   m_ObjectHideFlags: 0
@@ -547,7 +568,7 @@ MonoBehaviour:
   m_PixelsPerUnitMultiplier: 1
 --- !u!95 &8431564222126889742
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -564,7 +585,8 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &4421065098736992780
 GameObject:
   m_ObjectHideFlags: 0
@@ -690,6 +712,7 @@ GameObject:
   - component: {fileID: 4421065098829441718}
   - component: {fileID: 4421065098829441716}
   - component: {fileID: 4421065098829441717}
+  - component: {fileID: 8850850550314373102}
   m_Layer: 5
   m_Name: Text (TMP)
   m_TagString: Untagged
@@ -747,8 +770,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: UNLOCKED NEW SKIN !
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5f58c05479cb14f588efcdfcbdab347c, type: 2}
-  m_sharedMaterial: {fileID: 7423409246693961632, guid: 5f58c05479cb14f588efcdfcbdab347c,
+  m_fontAsset: {fileID: 11400000, guid: a933f577d03139348bf5a1468bf33208, type: 2}
+  m_sharedMaterial: {fileID: 3502512618334885138, guid: a933f577d03139348bf5a1468bf33208,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -815,6 +838,23 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &8850850550314373102
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421065098829441719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c30dbd2da4f9df4b991ceed90a9d3c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _key: unlocked_new_skin
+  _argument: 
+  _shrinkToFit: 1
+  _minimumScale: 0.62
+  _authoredSize: 0
 --- !u!1 &4421065098961519842
 GameObject:
   m_ObjectHideFlags: 0
@@ -1018,7 +1058,7 @@ MonoBehaviour:
       m_Calls: []
 --- !u!95 &5679464988145381690
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1035,7 +1075,8 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!114 &1290667003703625115
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1135,7 +1176,7 @@ MonoBehaviour:
   m_PixelsPerUnitMultiplier: 1
 --- !u!95 &6395151017525330135
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -1152,7 +1193,8 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &4421065100272653843
 GameObject:
   m_ObjectHideFlags: 0
@@ -1164,6 +1206,7 @@ GameObject:
   - component: {fileID: 4421065100272653842}
   - component: {fileID: 4421065100272653840}
   - component: {fileID: 4421065100272653841}
+  - component: {fileID: 1544837899331324309}
   m_Layer: 5
   m_Name: Text (TMP)
   m_TagString: Untagged
@@ -1221,8 +1264,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: OK
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5f58c05479cb14f588efcdfcbdab347c, type: 2}
-  m_sharedMaterial: {fileID: 7423409246693961632, guid: 5f58c05479cb14f588efcdfcbdab347c,
+  m_fontAsset: {fileID: 11400000, guid: a933f577d03139348bf5a1468bf33208, type: 2}
+  m_sharedMaterial: {fileID: 3502512618334885138, guid: a933f577d03139348bf5a1468bf33208,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -1289,6 +1332,23 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &1544837899331324309
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4421065100272653843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c30dbd2da4f9df4b991ceed90a9d3c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _key: ok
+  _argument: 
+  _shrinkToFit: 1
+  _minimumScale: 0.62
+  _authoredSize: 0
 --- !u!1 &4421065100506765547
 GameObject:
   m_ObjectHideFlags: 0

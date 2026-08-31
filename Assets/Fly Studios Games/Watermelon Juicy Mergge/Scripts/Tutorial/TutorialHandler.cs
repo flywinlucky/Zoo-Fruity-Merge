@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 using WatermelonGameClone;
+using WatermelonGameClone.Portal;
 
 public class TutorialHandler : MonoBehaviour
 {
-    private const string PREFS_KEY = "first_tutorial_seen";
-
     [Header("Tutorial objects")]
     [SerializeField] private GameObject _tutorialHand;
     [SerializeField] private WindowTutorial _tutorialWindow;
@@ -89,22 +88,18 @@ public class TutorialHandler : MonoBehaviour
 
     private void ShowTutorialPopupIfNeeded()
     {
-        if (!PlayerPrefs.HasKey(PREFS_KEY))
-        {
+        if (!ZooProgress.TutorialSeen)
             _tutorialWindow.gameObject.SetActive(true);
-        }
-
-        return;
     }
 
     public void CloseTutorialPopup()
     {
         _tutorialWindow.gameObject.SetActive(false);
 
-        if (!PlayerPrefs.HasKey(PREFS_KEY))
+        if (!ZooProgress.TutorialSeen)
         {
             _tutorialHand.SetActive(true);
-            PlayerPrefs.SetInt(PREFS_KEY, 1);
+            ZooProgress.TutorialSeen = true;
         }
     }
 

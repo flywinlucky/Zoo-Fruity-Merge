@@ -3,6 +3,7 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using WatermelonGameClone.Portal;
 
 public class UnlockBigItemPopUp : MonoBehaviour
 {
@@ -27,7 +28,7 @@ public class UnlockBigItemPopUp : MonoBehaviour
 
     public void InitializeUnlockBigItemPopUp()
     {
-        currentIndex = PlayerPrefs.GetInt("UnlockStateIndex", 0);
+        currentIndex = ZooProgress.UnlockPopupState;
 
         if (currentIndex < 2)
         {
@@ -40,7 +41,7 @@ public class UnlockBigItemPopUp : MonoBehaviour
 
         UnlockState(currentIndex);
 
-        PlayerPrefs.SetInt("UnlockStateIndex", currentIndex); // Salvăm noul index în PlayerPrefs
+        ZooProgress.UnlockPopupState = currentIndex;
     }
 
     private IEnumerator ShowCloseButtonAfter()
@@ -51,8 +52,7 @@ public class UnlockBigItemPopUp : MonoBehaviour
 
     public void BigItemPopUpSetData(string itemName, Sprite itemSprite)
     {
-        string formattedText = "<color=#00DDFF>" + itemName + "</color> UNLOCKED";
-        itemName_TMP.text = formattedText;
+        itemName_TMP.text = Loc.Format("item_unlocked", "<color=#00DDFF>" + Loc.ItemName(itemName) + "</color>");
         itemIcon.sprite = itemSprite;
     }
 

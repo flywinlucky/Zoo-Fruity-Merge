@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using WatermelonGameClone.Portal;
 
 namespace WatermelonGameClone
 {
@@ -39,7 +40,7 @@ namespace WatermelonGameClone
 
         public void UpdateCurrentScore(int currentScore)
         {
-            currentScore_TMP_Text.text = "Score " +  currentScore.ToString();
+            currentScore_TMP_Text.text = Loc.Format("score", currentScore);
         }
 
         public void UpdateBestScore(int bestScore)

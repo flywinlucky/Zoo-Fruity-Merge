@@ -1021,6 +1021,7 @@ GameObject:
   - component: {fileID: 2576621700116575950}
   - component: {fileID: 2576621700116575952}
   - component: {fileID: 2576621700116575953}
+  - component: {fileID: 2584726746393968815}
   m_Layer: 5
   m_Name: Title
   m_TagString: Untagged
@@ -1078,8 +1079,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: SKINS
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5f58c05479cb14f588efcdfcbdab347c, type: 2}
-  m_sharedMaterial: {fileID: 7423409246693961632, guid: 5f58c05479cb14f588efcdfcbdab347c,
+  m_fontAsset: {fileID: 11400000, guid: a933f577d03139348bf5a1468bf33208, type: 2}
+  m_sharedMaterial: {fileID: 3502512618334885138, guid: a933f577d03139348bf5a1468bf33208,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -1146,6 +1147,23 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2584726746393968815
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2576621700116575951}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c30dbd2da4f9df4b991ceed90a9d3c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _key: skins
+  _argument: 
+  _shrinkToFit: 1
+  _minimumScale: 0.62
+  _authoredSize: 0
 --- !u!1 &2576621700487996285
 GameObject:
   m_ObjectHideFlags: 0
@@ -2307,8 +2325,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Merge bear to unlock
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5f58c05479cb14f588efcdfcbdab347c, type: 2}
-  m_sharedMaterial: {fileID: 7423409246693961632, guid: 5f58c05479cb14f588efcdfcbdab347c,
+  m_fontAsset: {fileID: 11400000, guid: a933f577d03139348bf5a1468bf33208, type: 2}
+  m_sharedMaterial: {fileID: 3502512618334885138, guid: a933f577d03139348bf5a1468bf33208,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}

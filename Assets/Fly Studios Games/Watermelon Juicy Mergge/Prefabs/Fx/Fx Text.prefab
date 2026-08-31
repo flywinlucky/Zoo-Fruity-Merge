@@ -68,8 +68,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: +0
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 50b33a8aa73a9c646b74f60a76ad27f3, type: 2}
-  m_sharedMaterial: {fileID: 5400909949453159296, guid: 50b33a8aa73a9c646b74f60a76ad27f3,
+  m_fontAsset: {fileID: 11400000, guid: a933f577d03139348bf5a1468bf33208, type: 2}
+  m_sharedMaterial: {fileID: 3502512618334885138, guid: a933f577d03139348bf5a1468bf33208,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -100,7 +100,7 @@ MonoBehaviour:
   m_enableAutoSizing: 1
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 1
+  m_fontStyle: 0
   m_HorizontalAlignment: 2
   m_VerticalAlignment: 512
   m_textAlignment: 65535
@@ -214,9 +214,9 @@ MonoBehaviour:
   initializeOnEnable: 1
   desactivateAfterDisableAnim: 0
   useCustomScale: 0
-  customScale: {x: 0, y: 0, z: 0}
   onEnableAnimation: 5
   onDisableAnimation: 0
+  initialScale: {x: 0, y: 0, z: 0}
   audioSource: {fileID: 0}
 --- !u!1 &5688065864011380967
 GameObject:
@@ -354,6 +354,7 @@ Canvas:
   m_OverrideSorting: 0
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
   m_AdditionalShaderChannelsFlag: 25
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -400,7 +401,7 @@ MonoBehaviour:
     m_Bits: 503
 --- !u!95 &7856185122519066028
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -417,7 +418,8 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1001 &1647220179152035807
 PrefabInstance:
   m_ObjectHideFlags: 0

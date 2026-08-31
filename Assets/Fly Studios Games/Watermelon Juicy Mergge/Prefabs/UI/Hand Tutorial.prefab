@@ -240,6 +240,7 @@ GameObject:
   - component: {fileID: 448738761717407717}
   - component: {fileID: 448738761717407714}
   - component: {fileID: 7164387912423290899}
+  - component: {fileID: 5856657324535784392}
   m_Layer: 5
   m_Name: Text (TMP)
   m_TagString: Untagged
@@ -297,8 +298,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Drop items and merge.
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 5f58c05479cb14f588efcdfcbdab347c, type: 2}
-  m_sharedMaterial: {fileID: 7423409246693961632, guid: 5f58c05479cb14f588efcdfcbdab347c,
+  m_fontAsset: {fileID: 11400000, guid: a933f577d03139348bf5a1468bf33208, type: 2}
+  m_sharedMaterial: {fileID: 3502512618334885138, guid: a933f577d03139348bf5a1468bf33208,
     type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -379,6 +380,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   initializeOnEnable: 0
   tipingInterval: 0.0625
+--- !u!114 &5856657324535784392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 448738761717407712}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c30dbd2da4f9df4b991ceed90a9d3c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _key: tutorial_drop
+  _argument: 
+  _shrinkToFit: 1
+  _minimumScale: 0.62
+  _authoredSize: 0
 --- !u!1 &448738762332506121
 GameObject:
   m_ObjectHideFlags: 0
@@ -470,7 +488,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1ee0c87134187964180018f85076f7b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  popUpActiveSelf: 0
 --- !u!1 &448738762344024829
 GameObject:
   m_ObjectHideFlags: 0
@@ -535,7 +552,7 @@ MonoBehaviour:
   audioSource: {fileID: 0}
 --- !u!95 &448738762344024830
 Animator:
-  serializedVersion: 4
+  serializedVersion: 5
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -552,4 +569,5 @@ Animator:
   m_WarningMessage: 
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
-  m_KeepAnimatorControllerStateOnDisable: 0
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0

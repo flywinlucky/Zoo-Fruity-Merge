@@ -1,11 +1,13 @@
 ﻿using Sirenix.OdinInspector;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UniRx;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using WatermelonGameClone.Portal;
 using YG;
 
 namespace WatermelonGameClone
@@ -110,8 +112,6 @@ namespace WatermelonGameClone
         private bool canDropItem;
         bool onlyOnceGameOver;
 
-        int restoreSpheresData;
-
         public int nextSphereNo;
 
         [Space]
@@ -141,21 +141,43 @@ namespace WatermelonGameClone
                 CreateCustomSphere(unlockBigItemSphere);
             }
         }
-
+        private void Awake()
+        {
+            // set here, not in Start: the tutorial and the HUD look the instance up in their own
+            // Start, and the game's own start is now deferred until the cloud save arrives
+            Instance = this;
+        }
 
         private void Start()
         {
-            int defaultSkin = 0;
-            selectedIndex = PlayerPrefs.GetInt(WindowSelectSkin.SELECTED_SKIN_KEY, defaultSkin);
+            StartCoroutine(BootRoutine());
+        }
 
+        /// <summary>
+        /// The saved board and the chosen skin both come from the portal, and the skin decides
+        /// which prefabs the board is rebuilt from - so nothing may spawn before the data lands.
+        /// <see cref="PortalBridge"/> gives up after its own timeout, so this cannot hang.
+        /// </summary>
+        private IEnumerator BootRoutine()
+        {
+            while (!PortalBridge.IsReady)
+                yield return null;
+
+            InitializeGame();
+        }
+
+        private void InitializeGame()
+        {
+            selectedIndex = Mathf.Clamp(ZooProgress.SelectedSkin, 0, Mathf.Max(0, spheresCategory.Count - 1));
+
+            bool hasSavedBoard = ZooProgress.HasSavedBoard;
 
             currentSphere = CreateNewSphere();
-            nextSphere = PlayerPrefs.HasKey("restoreSpheresData") ? CreateNewSphere() : currentSphere;
+            nextSphere = hasSavedBoard ? CreateNewSphere() : currentSphere;
 
             _reactiveGameState = new ReactiveProperty<GameState>(CurrentState.Value);
             _reactiveCurrentScore = new ReactiveProperty<int>(CurrentScore.Value);
 
-            Instance = this;
             IsNext = false;
 
             //MaxSphereNo = _spherePrefab.Length;
@@ -172,28 +194,19 @@ namespace WatermelonGameClone
 
             SubscribeToGameEvents();
             SubscribeToScoreChanges();
-            //SetBestScore();
             CreateSphere();
             _tutorial.InitializeWindow(selectedIndex, spheresCategory);
             LoadBestScore();
 
-            if (PlayerPrefs.GetInt("newGamevalue", 0) == 1)
-            {
-                PlayerPrefs.DeleteKey("restoreSpheresData");
-                NewGame();
-            }
-            else
-            {
-                if (PlayerPrefs.HasKey("restoreSpheresData"))
-                {
-                    LoadDataFromPlayerPrefs();
+            bigItemsUnlocked = new List<string>(ZooProgress.BigItemsUnlocked);
 
-                }
-            }
+            if (hasSavedBoard)
+                LoadBoard();
 
             InitializeTopPanel();
             RestoreCurrentScore();
 
+            PortalBridge.Instance?.StartGameplay();
 
             InvokeRepeating(nameof(SaveGameData), 5f, 5f);
         }
@@ -204,7 +217,7 @@ namespace WatermelonGameClone
         {
             Debug.Log("[GameManager] Save game data");
             SaveBestScore();
-            SaveDataToPlayerPrefs();
+            SaveBoard();
         }
 
         #region merge goal related
@@ -256,15 +269,12 @@ namespace WatermelonGameClone
         [Button]
         public void NewGame()
         {
-            PlayerPrefs.DeleteKey("newGamevalue");
-
             Debug.LogWarning("NEW GAME !");
 
             ClearAllItems();
             ClearDataItemsList();
 
-            int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
-            SceneManager.LoadScene(currentSceneIndex);
+            ReloadScene();
         }
 
 
@@ -276,7 +286,15 @@ namespace WatermelonGameClone
         public void ReloadWithSelectedSkin()
         {
             SaveGameData();
-            PlayerPrefs.Save();
+
+            ReloadScene();
+        }
+
+        /// <summary>Single scene, so "restart" and "apply a new skin" are the same reload.</summary>
+        private void ReloadScene()
+        {
+            PortalBridge.Instance?.StopGameplay();
+            PortalBridge.Instance?.ShowInterstitialAtBreak();
 
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
@@ -287,10 +305,7 @@ namespace WatermelonGameClone
         /// </summary>
         private void RestoreCurrentScore()
         {
-            if (!PlayerPrefs.HasKey(CurrentScoreKey))
-                return;
-
-            CurrentScore.Value = PlayerPrefs.GetInt(CurrentScoreKey, 0);
+            CurrentScore.Value = ZooProgress.CurrentScore;
             _reactiveCurrentScore.Value = CurrentScore.Value;
         }
 
@@ -516,6 +531,7 @@ namespace WatermelonGameClone
                         unlockBigItemSphere = sphereIns;
 
                         bigItemsUnlocked.Add(sphereIns.itemName);
+                        ZooProgress.MarkBigItemUnlocked(sphereIns.itemName);
                     }
                 }
 
@@ -523,10 +539,10 @@ namespace WatermelonGameClone
                 {
                     unlockBigItemPopUp.UnlockState(1);
 
-                    if (!PlayerPrefs.HasKey("unlockedLastItem"))
+                    if (!ZooProgress.SecondSkinUnlocked)
                         unlockBigItemPopUp.okButton.GetComponent<Button>().onClick.AddListener(UnlockedNewSkin);
 
-                    PlayerPrefs.SetInt("unlockedLastItem", 1);
+                    ZooProgress.SecondSkinUnlocked = true;
                 }
 
                 comboSystem.IncreaseComboCount();
@@ -737,118 +753,74 @@ namespace WatermelonGameClone
         }
 
         #endregion
-
         #region Save Game Elements in scene
 
+        /// <summary>Wipes the stored board. The score goes with it - a board and the points that
+        /// built it are the same fact, and keeping one without the other reads as cheating.</summary>
         [Button]
         public void ClearDataItemsList()
         {
-            // Șterge cheile PlayerPrefs asociate datelor salvate din lista
-            PlayerPrefs.DeleteKey("TotalItems");
-            PlayerPrefs.DeleteKey(CurrentScoreKey);
-            for (int i = 0; i < savedSpheresData.Count; i++)
-            {
-                PlayerPrefs.DeleteKey("ItemID_" + i);
-                PlayerPrefs.DeleteKey("ItemPositionX_" + i);
-                PlayerPrefs.DeleteKey("ItemPositionY_" + i);
-                PlayerPrefs.DeleteKey("ItemPositionZ_" + i);
-                PlayerPrefs.DeleteKey("ItemRotationX_" + i);
-                PlayerPrefs.DeleteKey("ItemRotationY_" + i);
-                PlayerPrefs.DeleteKey("ItemRotationZ_" + i);
-                PlayerPrefs.DeleteKey("ItemRotationW_" + i);
-                PlayerPrefs.DeleteKey("ItemIndexInList_" + i);
-            }
-            // Salvează ștergerea cheilor PlayerPrefs
-            PlayerPrefs.Save();
-
+            ZooProgress.ClearBoard();
             savedSpheresData.Clear();
         }
 
+        /// <summary>Writes the board that is currently on screen into the cloud save.</summary>
         [Button]
-        public void SaveDataToPlayerPrefs()
+        public void SaveBoard()
         {
-            ClearDataItemsList();
-
-            Debug.LogWarning("SaveDataToPlayerPrefs");
-
+            savedSpheresData.Clear();
             LoadAllSpheresFromScene();
 
-            PlayerPrefs.SetInt("TotalItems", savedSpheresData.Count);
+            var board = new List<SavesYG.SavedSphere>(savedSpheresData.Count);
 
-            int i = 0;
             foreach (SaveData missionData in savedSpheresData)
             {
-                missionData.itemPosition = missionData.sphere.CurrentItemPosition();
-                missionData.itemRotation = missionData.sphere.CurrentItemRotation();
+                if (missionData.sphere == null)
+                    continue;
 
-                PlayerPrefs.SetString("ItemID_" + i, missionData.itemID);
-                PlayerPrefs.SetFloat("ItemPositionX_" + i, missionData.itemPosition.x);
-                PlayerPrefs.SetFloat("ItemPositionY_" + i, missionData.itemPosition.y);
-                PlayerPrefs.SetFloat("ItemPositionZ_" + i, missionData.itemPosition.z);
-
-                // Salvăm și rotația sferei
-                PlayerPrefs.SetFloat("ItemRotationX_" + i, missionData.itemRotation.x);
-                PlayerPrefs.SetFloat("ItemRotationY_" + i, missionData.itemRotation.y);
-                PlayerPrefs.SetFloat("ItemRotationZ_" + i, missionData.itemRotation.z);
-                PlayerPrefs.SetFloat("ItemRotationW_" + i, missionData.itemRotation.w);
-
-                // Găsește indexul elementului în listă folosind ID-ul și setează itemIndexInList
-                int index = FindItemIndexByID(missionData.itemID);
-                missionData.itemIndexInList = index;
-
-                PlayerPrefs.SetInt("ItemIndexInList_" + i, missionData.itemIndexInList);
-
-                i++;
+                board.Add(new SavesYG.SavedSphere
+                {
+                    itemId = missionData.itemID,
+                    indexInList = FindItemIndexByID(missionData.itemID),
+                    position = missionData.sphere.CurrentItemPosition(),
+                    rotation = missionData.sphere.CurrentItemRotation()
+                });
             }
 
-            PlayerPrefs.Save();
-
-            PlayerPrefs.SetInt(CurrentScoreKey, CurrentScore.Value);
-            PlayerPrefs.SetInt("restoreSpheresData", restoreSpheresData);
+            ZooProgress.StoreBoard(board, CurrentScore.Value);
         }
 
+        /// <summary>
+        /// Rebuilds the stored board. Spheres are addressed by their index inside the category, not
+        /// by prefab, which is what lets a saved run come back wearing a different skin.
+        /// </summary>
         [Button]
-        public void LoadDataFromPlayerPrefs()
+        public void LoadBoard()
         {
-            Debug.LogWarning("LoadDataFromPlayerPrefs");
+            savedSpheresData.Clear();
 
-            if (PlayerPrefs.HasKey("TotalItems"))
+            var stored = ZooProgress.Board;
+            if (stored == null)
+                return;
+
+            var category = spheresCategory[selectedIndex].spheresCategory;
+
+            foreach (var saved in stored)
             {
-                int totalItems = PlayerPrefs.GetInt("TotalItems");
-
-                for (int i = 0; i < totalItems; i++)
+                if (saved.indexInList < 0 || saved.indexInList >= category.Count)
                 {
-                    SaveData missionData = new SaveData();
-
-                    missionData.itemID = PlayerPrefs.GetString("ItemID_" + i);
-                    float posX = PlayerPrefs.GetFloat("ItemPositionX_" + i);
-                    float posY = PlayerPrefs.GetFloat("ItemPositionY_" + i);
-                    float posZ = PlayerPrefs.GetFloat("ItemPositionZ_" + i);
-
-                    // Încarcăm și poziția și rotația sferelor
-                    missionData.itemPosition = new Vector3(posX, posY, posZ);
-                    float rotX = PlayerPrefs.GetFloat("ItemRotationX_" + i);
-                    float rotY = PlayerPrefs.GetFloat("ItemRotationY_" + i);
-                    float rotZ = PlayerPrefs.GetFloat("ItemRotationZ_" + i);
-                    float rotW = PlayerPrefs.GetFloat("ItemRotationW_" + i);
-                    missionData.itemRotation = new Quaternion(rotX, rotY, rotZ, rotW);
-
-                    // Încărcați indexul elementului în listă și setați itemIndexInList
-                    int index = PlayerPrefs.GetInt("ItemIndexInList_" + i);
-                    missionData.itemIndexInList = index;
-
-                    // Obțineți sfera corespunzătoare din lista de sfere folosind indexul
-                    if (index >= 0 && index < spheresCategory[selectedIndex].spheresCategory.Count)
-                    {
-                        missionData.sphere = spheresCategory[selectedIndex].spheresCategory[index].sphere;
-                    }
-                    else
-                    {
-                        Debug.LogError("Invalid itemIndexInList: " + index);
-                    }
-
-                    savedSpheresData.Add(missionData);
+                    Debug.LogError("Invalid itemIndexInList: " + saved.indexInList);
+                    continue;
                 }
+
+                savedSpheresData.Add(new SaveData
+                {
+                    sphere = category[saved.indexInList].sphere,
+                    itemID = saved.itemId,
+                    itemIndexInList = saved.indexInList,
+                    itemPosition = saved.position,
+                    itemRotation = saved.rotation
+                });
             }
 
             Invoke(nameof(RestoreSphereData), 0.2f);
@@ -934,9 +906,6 @@ namespace WatermelonGameClone
 
         private static readonly int s_scoreCoefficient = 10;
 
-        // the board is restored across a single-scene reload, so the running score is too
-        private const string CurrentScoreKey = "CurrentScore";
-
 
         public ReactiveProperty<GameState> CurrentState
         {
@@ -969,34 +938,29 @@ namespace WatermelonGameClone
             CurrentScore.Value += scoreToAdd;
         }
 
+        /// <summary>A new high score is the one number the leaderboard cares about, so it is
+        /// written through immediately and pushed to the portal in the same breath.</summary>
         public void SaveBestScore()
         {
-            // Verificăm dacă scorul curent este mai mare decât scorul maxim anterior
-            if (CurrentScore.Value > LoadBestScore())
-            {
-                // Salvăm noul scor maxim
-                BestScore.Value = CurrentScore.Value;
-                PlayerPrefs.SetInt("BestScore", BestScore.Value);
-                PlayerPrefs.Save();
+            if (CurrentScore.Value <= ZooProgress.BestScore)
+                return;
 
-                _gameView.UpdateBestScore(BestScore.Value);
+            BestScore.Value = CurrentScore.Value;
+            ZooProgress.BestScore = BestScore.Value;
 
-                //Debug.LogWarning("Save New best score value");
-            }
-            else
-            {
-                //Debug.LogWarning("No record !");
-            }
+            _gameView.UpdateBestScore(BestScore.Value);
+
+            PortalBridge.Instance?.SubmitBestScore(BestScore.Value);
         }
 
 
         [Button]
         public int LoadBestScore()
         {
-            int bestScore = PlayerPrefs.GetInt("BestScore", BestScore.Value);
+            int bestScore = ZooProgress.BestScore;
 
+            BestScore.Value = bestScore;
             _gameView.UpdateBestScore(bestScore);
-            //Debug.LogError("Loaded Best Score : " + bestScore);
             return bestScore;
         }
 

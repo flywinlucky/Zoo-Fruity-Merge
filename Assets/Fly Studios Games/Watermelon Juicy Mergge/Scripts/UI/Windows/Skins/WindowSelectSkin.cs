@@ -2,11 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using System.Linq;
+using WatermelonGameClone.Portal;
 
 public partial class WindowSelectSkin : UIMonoBehaviour
 {
-    public const string SELECTED_SKIN_KEY = "selected_skin_id";
-
     [SerializeField] private GameObject _contentPanel;
     [SerializeField] private TMP_Text _unlockText;
     [SerializeField] private List<SkinItem> _skinItems;
@@ -33,7 +32,7 @@ public partial class WindowSelectSkin : UIMonoBehaviour
     private void Initialize()
     {
         _firstSkin = 0;
-        _currentSelectedSkinsIndex = PlayerPrefs.GetInt(SELECTED_SKIN_KEY, _firstSkin);
+        _currentSelectedSkinsIndex = Mathf.Clamp(ZooProgress.SelectedSkin, 0, Mathf.Max(0, _skinItems.Count - 1));
         _skinInUse = _currentSelectedSkinsIndex;
     }
 
@@ -53,14 +52,14 @@ public partial class WindowSelectSkin : UIMonoBehaviour
         _skinItems[_currentSelectedSkinsIndex].SetState(SkinItem.State.SELECTED);
 
         // handle locked
-        if (PlayerPrefs.HasKey("unlockedLastItem"))
+        if (ZooProgress.SecondSkinUnlocked)
             return;
 
         int lockedId = _firstSkin == 0 ? 1 : 0;
         _skinItems[lockedId].SetState(SkinItem.State.LOCKED);
 
         _unlockText.gameObject.SetActive(true);
-        _unlockText.text = $"Merge {_skinItems[lockedId].ConditionSphereName} to unlock";
+        _unlockText.text = Loc.Format("merge_to_unlock", Loc.ItemName(_skinItems[lockedId].ConditionSphereName));
 
     }
 
@@ -76,8 +75,7 @@ public partial class WindowSelectSkin : UIMonoBehaviour
         }
 
         _currentSelectedSkinsIndex = skinIndex;
-        PlayerPrefs.SetInt(SELECTED_SKIN_KEY, skinIndex);
-        PlayerPrefs.Save();
+        ZooProgress.SelectedSkin = skinIndex;
 
         _applyOnClose = skinIndex != _skinInUse;
     }
