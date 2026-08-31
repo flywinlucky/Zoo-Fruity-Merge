@@ -1,3 +1,3 @@
-﻿Build path: C:/Users/sebnl/Desktop/Folder nou (2)
-Build number: 1
+﻿Build path: C:/Users/sebnl/Desktop/wefwefwef/AH_GeneratedBuild.exe
+Build number: 2
 PluginYG version: 2.0092
