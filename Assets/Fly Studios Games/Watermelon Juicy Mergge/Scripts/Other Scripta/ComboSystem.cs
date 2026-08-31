@@ -4,6 +4,7 @@ using UnityEngine;
 using TMPro;
 using Sirenix.OdinInspector;
 using UnityEngine.UI;
+using WatermelonGameClone.Portal;
 
 public class ComboSystem : MonoBehaviour
 {
@@ -60,7 +61,7 @@ public class ComboSystem : MonoBehaviour
 
         if (count >= 2)
         {
-            txtCombo = count - 1 + "X COMBO".ToString();
+            txtCombo = Loc.Format("combo", count - 1);
 
             SpawnNewCombotextPrefab(txtCombo);
         }
@@ -71,9 +72,15 @@ public class ComboSystem : MonoBehaviour
  
     public void SpawnNewCombotextPrefab(string txtMessage)
     {
-        Instantiate(textComboPrefab, textSpawnPoint.transform.position, Quaternion.identity, textSpawnPoint);
+        // the text goes on the SPAWNED copy. It used to be written into textComboPrefab itself,
+        // which is the prefab asset - so every pop showed the previous combo and the asset was
+        // being edited at runtime
+        GameObject spawned = Instantiate(
+            textComboPrefab, textSpawnPoint.transform.position, Quaternion.identity, textSpawnPoint);
 
-        textComboPrefab.GetComponent<ComboText>().ComboTextUI(txtMessage, AplyTextColor());
+        var comboText = spawned.GetComponent<ComboText>();
+        if (comboText != null)
+            comboText.ComboTextUI(txtMessage, AplyTextColor());
     }
 
     public void comborestart()
@@ -91,8 +98,11 @@ public class ComboSystem : MonoBehaviour
         // Verificăm dacă count este în intervalul corect pentru array-ul de culori
         if (count >= 0 && count < colors.Length)
         {
-            clipsSource.clip = audioClips[count];
-            clipsSource.Play();
+            if (clipsSource && audioClips != null && count < audioClips.Length)
+            {
+                clipsSource.clip = audioClips[count];
+                clipsSource.Play();
+            }
 
             return colors[count];
         }

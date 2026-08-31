@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace WatermelonGameClone.PortalEditor
 {
@@ -116,6 +117,159 @@ namespace WatermelonGameClone.PortalEditor
             Debug.Log($"[Font] Russo One applied to {inScene} labels in the scene and {inPrefabs} " +
                       $"in prefabs. {keptMaterial} labels had a custom material and were switched " +
                       "to the font's own - check those for lost outlines.");
+        }
+
+        [MenuItem("Tools/Yandex/Font - Convert legacy Text to TMP")]
+        public static void ConvertLegacyText()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+            if (font == null)
+            {
+                Debug.LogError("[Font] Russo One font asset not found at " + FontPath);
+                return;
+            }
+
+            int inPrefabs = 0;
+            foreach (var path in PrefabPaths())
+            {
+                var root = PrefabUtility.LoadPrefabContents(path);
+                try
+                {
+                    int converted = ConvertUnder(root, font);
+                    if (converted > 0)
+                    {
+                        PrefabUtility.SaveAsPrefabAsset(root, path);
+                        inPrefabs += converted;
+                    }
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+
+            if (SceneManager.GetActiveScene().path != GameScenePath)
+                EditorSceneManager.OpenScene(GameScenePath);
+
+            var scene = SceneManager.GetActiveScene();
+            int inScene = scene.GetRootGameObjects().Sum(root => ConvertUnder(root, font));
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Debug.Log("[Font] Converted " + inScene + " legacy Text in the scene and " +
+                      inPrefabs + " in prefabs to TMP.");
+        }
+
+        /// <summary>
+        /// Swaps every legacy <see cref="Text"/> under <paramref name="root"/> for a TMP label,
+        /// carrying over what the two have in common. Best Fit becomes TMP auto-sizing, which is
+        /// the same idea under a different name.
+        /// </summary>
+        private static int ConvertUnder(GameObject root, TMP_FontAsset font)
+        {
+            var legacy = root.GetComponentsInChildren<Text>(true);
+            int converted = 0;
+
+            foreach (var text in legacy)
+            {
+                if (text == null)
+                    continue;
+
+                GameObject owner = text.gameObject;
+
+                string content = text.text;
+                Color colour = text.color;
+                bool raycast = text.raycastTarget;
+                bool bestFit = text.resizeTextForBestFit;
+                int size = text.fontSize;
+                int minSize = text.resizeTextMinSize;
+                int maxSize = text.resizeTextMaxSize;
+                bool wrap = text.horizontalOverflow == HorizontalWrapMode.Wrap;
+                TextAlignmentOptions alignment = Translate(text.alignment);
+
+                // a GameObject can carry only one Graphic, so the old one has to go first
+                Object.DestroyImmediate(text, true);
+
+                var label = owner.AddComponent<TextMeshProUGUI>();
+                label.font = font;
+                label.fontSharedMaterial = font.material;
+                label.text = content;
+                label.color = colour;
+                label.raycastTarget = raycast;
+                label.alignment = alignment;
+                label.enableWordWrapping = wrap;
+                label.fontSize = size;
+
+                if (bestFit)
+                {
+                    label.enableAutoSizing = true;
+                    label.fontSizeMin = minSize;
+                    label.fontSizeMax = maxSize;
+                }
+
+                RewireReferences(owner, label);
+
+                EditorUtility.SetDirty(owner);
+                converted++;
+            }
+
+            return converted;
+        }
+
+        /// <summary>
+        /// A script that used to point at the legacy Text now has a null TMP field - the reference
+        /// died when the field's type changed. Fill any empty TMP slot on the same object.
+        /// </summary>
+        private static void RewireReferences(GameObject owner, TMP_Text label)
+        {
+            foreach (var behaviour in owner.GetComponents<MonoBehaviour>())
+            {
+                if (behaviour == null || behaviour is TMP_Text)
+                    continue;
+
+                var serialized = new SerializedObject(behaviour);
+                var property = serialized.GetIterator();
+                bool changed = false;
+
+                while (property.NextVisible(true))
+                {
+                    if (property.propertyType != SerializedPropertyType.ObjectReference)
+                        continue;
+
+                    if (property.objectReferenceValue != null)
+                        continue;
+
+                    if (!property.type.Contains("TMP_Text") &&
+                        !property.type.Contains("TextMeshProUGUI"))
+                        continue;
+
+                    property.objectReferenceValue = label;
+                    changed = true;
+                }
+
+                if (changed)
+                    serialized.ApplyModifiedPropertiesWithoutUndo();
+            }
+        }
+
+        private static TextAlignmentOptions Translate(TextAnchor anchor)
+        {
+            switch (anchor)
+            {
+                case TextAnchor.UpperLeft: return TextAlignmentOptions.TopLeft;
+                case TextAnchor.UpperCenter: return TextAlignmentOptions.Top;
+                case TextAnchor.UpperRight: return TextAlignmentOptions.TopRight;
+                case TextAnchor.MiddleLeft: return TextAlignmentOptions.Left;
+                case TextAnchor.MiddleCenter: return TextAlignmentOptions.Center;
+                case TextAnchor.MiddleRight: return TextAlignmentOptions.Right;
+                case TextAnchor.LowerLeft: return TextAlignmentOptions.BottomLeft;
+                case TextAnchor.LowerCenter: return TextAlignmentOptions.Bottom;
+                case TextAnchor.LowerRight: return TextAlignmentOptions.BottomRight;
+                default: return TextAlignmentOptions.Center;
+            }
         }
 
         private static int Apply(IReadOnlyList<TMP_Text> labels, TMP_FontAsset font, ref int customMaterials)

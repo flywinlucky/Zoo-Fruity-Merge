@@ -56,6 +56,8 @@ namespace WatermelonGameClone.Portal
             { "unlocked_new_skin",    new[] { "UNLOCKED NEW SKIN !",           "НОВЫЙ СКИН ОТКРЫТ!",               "YENİ GÖRÜNÜM AÇILDI!" } },
             { "available_in_skins",   new[] { "AVAILABLE IN SKIN SELECTOR",    "ДОСТУПНО В ВЫБОРЕ СКИНОВ",         "GÖRÜNÜM SEÇİMİNDE" } },
 
+            { "combo",                new[] { "{0}X COMBO",                    "{0}X КОМБО",                       "{0}X KOMBO" } },
+
             { "leaderboard",          new[] { "LEADERBOARD",                   "РЕЙТИНГ",                          "SIRALAMA" } },
             { "log_in",               new[] { "LOG IN",                        "ВОЙТИ",                            "GİRİŞ YAP" } },
             { "you",                  new[] { "You",                           "Вы",                               "Sen" } },

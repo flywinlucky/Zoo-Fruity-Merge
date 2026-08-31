@@ -340,6 +340,38 @@ namespace WatermelonGameClone.PortalEditor
             Debug.Log("[Portal] settings opened, frame " + Time.frameCount);
         }
 
+        [MenuItem("Tools/Yandex/Debug - Fire a combo")]
+        public static void DebugFireCombo()
+        {
+            var combo = Object.FindObjectOfType<ComboSystem>(true);
+            if (combo == null)
+            {
+                Debug.LogError("[Portal] no ComboSystem in the scene");
+                return;
+            }
+
+            combo.IncreaseComboCount();
+            combo.IncreaseComboCount();
+            combo.IncreaseComboCount();
+
+            // the pop is gone in under a second, so freeze the copy long enough to look at it
+            foreach (var spawned in combo.textSpawnPoint.GetComponentsInChildren<ComboText>(true))
+            {
+                var killer = spawned.GetComponent<CubeEscape3D.DestroyAfter>();
+                if (killer != null)
+                    killer.enabled = false;
+
+                var animator = spawned.GetComponent<Animator>();
+                if (animator != null)
+                    animator.enabled = false;
+
+                spawned.transform.localScale = Vector3.one * 1.3f;
+
+                Debug.Log("[Portal] combo label: \"" + spawned.comboText.text + "\" font=" +
+                          spawned.comboText.font.name + ", frame " + Time.frameCount);
+            }
+        }
+
         [MenuItem("Tools/Yandex/4 - Check translations")]
         public static void CheckTranslations()
         {
