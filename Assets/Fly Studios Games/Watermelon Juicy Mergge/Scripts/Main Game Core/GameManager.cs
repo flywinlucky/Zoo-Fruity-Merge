@@ -192,6 +192,8 @@ namespace WatermelonGameClone
             }
 
             InitializeTopPanel();
+            RestoreCurrentScore();
+
 
             InvokeRepeating(nameof(SaveGameData), 5f, 5f);
         }
@@ -263,6 +265,33 @@ namespace WatermelonGameClone
 
             int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
             SceneManager.LoadScene(currentSceneIndex);
+        }
+
+
+        /// <summary>
+        /// The skin picker now lives in the same scene as the game, so applying a new skin
+        /// means: persist the current board and score, then reload this single scene so every
+        /// sphere is re-created from the newly selected category.
+        /// </summary>
+        public void ReloadWithSelectedSkin()
+        {
+            SaveGameData();
+            PlayerPrefs.Save();
+
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        /// <summary>
+        /// The run used to be re-entered from the menu scene, which always reset the score.
+        /// With a single scene the board survives a reload, so the score has to survive with it.
+        /// </summary>
+        private void RestoreCurrentScore()
+        {
+            if (!PlayerPrefs.HasKey(CurrentScoreKey))
+                return;
+
+            CurrentScore.Value = PlayerPrefs.GetInt(CurrentScoreKey, 0);
+            _reactiveCurrentScore.Value = CurrentScore.Value;
         }
 
         private void Update()
@@ -716,6 +745,7 @@ namespace WatermelonGameClone
         {
             // Șterge cheile PlayerPrefs asociate datelor salvate din lista
             PlayerPrefs.DeleteKey("TotalItems");
+            PlayerPrefs.DeleteKey(CurrentScoreKey);
             for (int i = 0; i < savedSpheresData.Count; i++)
             {
                 PlayerPrefs.DeleteKey("ItemID_" + i);
@@ -773,6 +803,7 @@ namespace WatermelonGameClone
 
             PlayerPrefs.Save();
 
+            PlayerPrefs.SetInt(CurrentScoreKey, CurrentScore.Value);
             PlayerPrefs.SetInt("restoreSpheresData", restoreSpheresData);
         }
 
@@ -902,6 +933,9 @@ namespace WatermelonGameClone
         private Dictionary<SoundEffect, AudioClip> soundEffects = new Dictionary<SoundEffect, AudioClip>();
 
         private static readonly int s_scoreCoefficient = 10;
+
+        // the board is restored across a single-scene reload, so the running score is too
+        private const string CurrentScoreKey = "CurrentScore";
 
 
         public ReactiveProperty<GameState> CurrentState

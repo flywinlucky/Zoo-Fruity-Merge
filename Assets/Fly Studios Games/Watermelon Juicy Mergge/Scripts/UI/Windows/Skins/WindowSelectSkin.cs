@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 using System.Linq;
@@ -13,6 +13,11 @@ public partial class WindowSelectSkin : UIMonoBehaviour
 
     private int _firstSkin = 0;
     private int _currentSelectedSkinsIndex = 0;
+
+    // the skin the running game was built with; the window opens in the game scene now,
+    // so a different pick has to be applied instead of waiting for the next scene load
+    private int _skinInUse = 0;
+    private bool _applyOnClose;
 
     private void Start()
     {
@@ -29,6 +34,7 @@ public partial class WindowSelectSkin : UIMonoBehaviour
     {
         _firstSkin = 0;
         _currentSelectedSkinsIndex = PlayerPrefs.GetInt(SELECTED_SKIN_KEY, _firstSkin);
+        _skinInUse = _currentSelectedSkinsIndex;
     }
 
     private void UpdateContent()
@@ -71,5 +77,28 @@ public partial class WindowSelectSkin : UIMonoBehaviour
 
         _currentSelectedSkinsIndex = skinIndex;
         PlayerPrefs.SetInt(SELECTED_SKIN_KEY, skinIndex);
+        PlayerPrefs.Save();
+
+        _applyOnClose = skinIndex != _skinInUse;
+    }
+
+    /// <summary>
+    /// Closing the window is what commits the pick: the board and score are saved and the
+    /// single scene reloads, so every sphere comes back in the newly chosen skin.
+    /// </summary>
+    private void OnDisable()
+    {
+        // ignore the OnDisable that comes from the scene itself being torn down
+        if (!_applyOnClose || !Application.isPlaying || !gameObject.scene.isLoaded)
+            return;
+
+        _applyOnClose = false;
+
+        var gameManager = WatermelonGameClone.GameManager.Instance;
+        if (gameManager == null)
+            return;
+
+        _skinInUse = _currentSelectedSkinsIndex;
+        gameManager.ReloadWithSelectedSkin();
     }
 }
