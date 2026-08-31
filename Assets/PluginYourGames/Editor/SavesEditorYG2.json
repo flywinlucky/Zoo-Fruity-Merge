@@ -1,159 +1,8 @@
 {
     "bestScore": 9120,
-    "currentScore": 2600,
+    "currentScore": 0,
     "hasSavedBoard": true,
-    "board": [
-        {
-            "itemId": "p28dtFPRV2CRm",
-            "indexInList": 3,
-            "position": {
-                "x": -2.243924379348755,
-                "y": -6.1624040603637699,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.9916661977767944,
-                "w": -0.12883415818214417
-            }
-        },
-        {
-            "itemId": "usHuZrqoxzgmX",
-            "indexInList": 4,
-            "position": {
-                "x": -1.3363932371139527,
-                "y": -6.772833824157715,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": -0.325297087430954,
-                "w": 0.9456118941307068
-            }
-        },
-        {
-            "itemId": "zglUl1kfiJ",
-            "indexInList": 5,
-            "position": {
-                "x": 0.6143156886100769,
-                "y": -6.67349910736084,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": -0.913962185382843,
-                "w": 0.4057994484901428
-            }
-        },
-        {
-            "itemId": "usHuZrqoxzgmX",
-            "indexInList": 4,
-            "position": {
-                "x": 2.172562599182129,
-                "y": -6.772039413452148,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": -0.5704163908958435,
-                "w": 0.8213556408882141
-            }
-        },
-        {
-            "itemId": "ga0iyeucCt",
-            "indexInList": 6,
-            "position": {
-                "x": -0.4891965091228485,
-                "y": -5.666175365447998,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": -0.25283944606781008,
-                "w": 0.9675082564353943
-            }
-        },
-        {
-            "itemId": "usHuZrqoxzgmX",
-            "indexInList": 4,
-            "position": {
-                "x": -1.7911968231201172,
-                "y": -5.165811538696289,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.9999983310699463,
-                "w": 0.00185817398596555
-            }
-        },
-        {
-            "itemId": "p28dtFPRV2CRm",
-            "indexInList": 3,
-            "position": {
-                "x": -0.3581945598125458,
-                "y": -4.379004955291748,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": -0.9180205464363098,
-                "w": -0.39653289318084719
-            }
-        },
-        {
-            "itemId": "p28dtFPRV2CRm",
-            "indexInList": 3,
-            "position": {
-                "x": 0.8745986819267273,
-                "y": -5.5091471672058109,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": 0.2689753770828247,
-                "w": 0.9631470441818237
-            }
-        },
-        {
-            "itemId": "AhmV5irQVasz",
-            "indexInList": 7,
-            "position": {
-                "x": 1.8754467964172364,
-                "y": -4.539592266082764,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": -0.045725543051958087,
-                "w": 0.9989541172981262
-            }
-        },
-        {
-            "itemId": "ga0iyeucCt",
-            "indexInList": 6,
-            "position": {
-                "x": 0.5624507069587708,
-                "y": -3.4689013957977297,
-                "z": 95.0
-            },
-            "rotation": {
-                "x": 0.0,
-                "y": 0.0,
-                "z": -0.07668906450271607,
-                "w": 0.9970550537109375
-            }
-        }
-    ],
+    "board": [],
     "selectedSkin": 0,
     "secondSkinUnlocked": false,
     "unlockPopupState": 3,
@@ -167,12 +16,12 @@
     "musicOn": true,
     "tutorialSeen": true,
     "authDialogShown": false,
-    "sessions": 14,
+    "sessions": 17,
     "stringKeys": [],
     "stringValues": [],
     "floatKeys": [],
     "floatValues": [],
     "intKeys": [],
     "intValues": [],
-    "idSave": 148
+    "idSave": 151
 }
