@@ -3205,7 +3205,7 @@ MonoBehaviour:
   gameOverPanel: {fileID: 1271725198}
   setSpriteUi:
   - {fileID: 228873043}
-  - {fileID: 0}
+  - {fileID: 3080805812939234744}
   - {fileID: 1506417126}
   - {fileID: 1389911188}
   - {fileID: 1505019393}
@@ -3213,7 +3213,7 @@ MonoBehaviour:
   - {fileID: 1500139112}
   - {fileID: 1489663413}
   - {fileID: 2064461888}
-  - {fileID: 0}
+  - {fileID: 3080805812939234743}
   - {fileID: 1542146400}
   twenScalingItem: []
   drop_sfx: {fileID: 2069746235}
@@ -10407,6 +10407,30 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 3080805812939234739}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &3080805812939234743 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3080805811482327667, guid: b4c7fe0e67f67604d8ceb7ba4da68cbb,
+    type: 3}
+  m_PrefabInstance: {fileID: 3080805812939234739}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e2dcdc5c0f9c2f4ebc49ca4d075c2dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &3080805812939234744 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3080805811787603932, guid: b4c7fe0e67f67604d8ceb7ba4da68cbb,
+    type: 3}
+  m_PrefabInstance: {fileID: 3080805812939234739}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e2dcdc5c0f9c2f4ebc49ca4d075c2dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &3080805812939234746
 MonoBehaviour:
   m_ObjectHideFlags: 0
